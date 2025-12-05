@@ -1,0 +1,201 @@
+═══════════════════════════════════════════════════════════════════
+  WINDOWS SECURITY AUDIT FRAMEWORK v5.1 - INSTALLATION GUIDE
+  ✨ NOW WITH GUI! ✨
+═══════════════════════════════════════════════════════════════════
+
+STEP 1: CREATE FOLDER STRUCTURE
+────────────────────────────────────────────────────────────────────
+
+Create this folder structure on your computer:
+
+C:\WindowsSecurityAudit\                    (or any location you prefer)
+│
+├── START_HERE.bat                   ← DOUBLE-CLICK THIS TO LAUNCH!
+├── SecurityAuditGUI.ps1             ← GUI Application
+├── SecurityAudit.ps1                ← Main script (backend)
+├── Config.psd1                      ← Configuration file
+├── README.md                        ← Documentation
+│
+└── Modules\                         ← Create this folder
+    ├── Core.psm1
+    ├── SystemHardening.psm1
+    ├── DefenderAudit.psm1
+    ├── FirewallAudit.psm1
+    ├── ProcessTriage.psm1
+    ├── PersistenceHunting.psm1
+    ├── NetworkAudit.psm1
+    ├── ForensicChecks.psm1
+    ├── FileSystemAudit.psm1
+    └── ReportGenerator.psm1
+
+
+STEP 2: COPY FILES FROM ARTIFACTS
+────────────────────────────────────────────────────────────────────
+
+Copy each artifact (code block) from Claude into the correct file:
+
+=== MAIN FILES ===
+1. START_HERE.bat → Save to: C:\SecurityAudit\START_HERE.bat
+2. SecurityAuditGUI.ps1 → Save to: C:\SecurityAudit\SecurityAuditGUI.ps1
+3. SecurityAudit.ps1 → Save to: C:\SecurityAudit\SecurityAudit.ps1
+4. Config.psd1 → Save to: C:\SecurityAudit\Config.psd1
+5. README.md → Save to: C:\SecurityAudit\README.md
+
+=== MODULES (all go in Modules\ folder) ===
+6. Core.psm1 → Save to: C:\SecurityAudit\Modules\Core.psm1
+7. SystemHardening.psm1 → Save to: C:\SecurityAudit\Modules\SystemHardening.psm1
+8. DefenderAudit.psm1 → Save to: C:\SecurityAudit\Modules\DefenderAudit.psm1
+9. FirewallAudit.psm1 → Save to: C:\SecurityAudit\Modules\FirewallAudit.psm1
+10. ProcessTriage.psm1 → Save to: C:\SecurityAudit\Modules\ProcessTriage.psm1
+11. PersistenceHunting.psm1 → Save to: C:\SecurityAudit\Modules\PersistenceHunting.psm1
+12. NetworkAudit.psm1 → Save to: C:\SecurityAudit\Modules\NetworkAudit.psm1
+13. ForensicChecks.psm1 → Save to: C:\SecurityAudit\Modules\ForensicChecks.psm1
+14. FileSystemAudit.psm1 → Save to: C:\SecurityAudit\Modules\FileSystemAudit.psm1
+15. ReportGenerator.psm1 → Save to: C:\SecurityAudit\Modules\ReportGenerator.psm1
+
+
+STEP 3: LAUNCH THE APPLICATION
+────────────────────────────────────────────────────────────────────
+
+🎯 EASIEST METHOD: Double-click "START_HERE.bat"
+
+That's it! The GUI will launch automatically.
+
+
+ALTERNATIVE METHODS:
+────────────────────────────────────────────────────────────────────
+
+Method A: Run GUI directly
+    1. Right-click SecurityAuditGUI.ps1
+    2. Choose "Run with PowerShell"
+
+Method B: Run from PowerShell
+    1. Open PowerShell as Administrator
+    2. Navigate to folder: cd C:\SecurityAudit
+    3. Run: .\SecurityAuditGUI.ps1
+
+Method C: Run command-line version (no GUI)
+    1. Open PowerShell as Administrator
+    2. Navigate to folder: cd C:\SecurityAudit
+    3. Run: .\SecurityAudit.ps1
+
+
+═══════════════════════════════════════════════════════════════════
+  QUICK START COMMANDS
+═══════════════════════════════════════════════════════════════════
+
+# Basic scan (recommended for first run)
+.\SecurityAudit.ps1
+
+# Quick scan (fast, essential checks)
+.\SecurityAudit.ps1 -Mode Quick
+
+# Full forensic scan (everything)
+.\SecurityAudit.ps1 -Mode Forensic
+
+# Save reports to custom location
+.\SecurityAudit.ps1 -ReportPath "C:\MyReports"
+
+
+═══════════════════════════════════════════════════════════════════
+  FIXING YOUR SPECIFIC ISSUES
+═══════════════════════════════════════════════════════════════════
+
+YOUR LAPTOP (Missing Windows Security folders):
+1. Run the audit - it will detect missing system folders
+2. Look for "Missing Critical System Folder" in the report
+3. Follow recommendations:
+   - Run: sfc /scannow
+   - Run: DISM /Online /Cleanup-Image /RestoreHealth
+4. If those fail, you may need to:
+   - Reinstall Windows (clean install recommended)
+   - Restore from backup
+
+YOUR LAPTOP (File corruption/gibberish names):
+1. Run the audit - it will detect:
+   - Disk health issues
+   - File system corruption
+   - Gibberish filenames
+2. Look for "File System Integrity" section
+3. Follow recommendations:
+   - Run: chkdsk C: /f
+   - Backup important data
+   - Consider clean Windows install
+
+
+═══════════════════════════════════════════════════════════════════
+  TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════
+
+PROBLEM: "Cannot be loaded because running scripts is disabled"
+SOLUTION: Run as Admin:
+    Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+
+PROBLEM: "The term 'Import-Module' is not recognized"
+SOLUTION: You're in cmd.exe instead of PowerShell
+    - Close cmd and open PowerShell instead
+
+PROBLEM: Modules not found
+SOLUTION: Make sure file paths are correct:
+    - Check Modules\ folder exists
+    - Check all .psm1 files are in Modules\
+    - Check paths have no typos
+
+PROBLEM: Reports not generating
+SOLUTION:
+    - Check Desktop has write permissions
+    - Try custom path: .\SecurityAudit.ps1 -ReportPath "C:\Temp"
+
+PROBLEM: "Access Denied" errors
+SOLUTION: Run PowerShell as Administrator
+    - Right-click PowerShell → Run as Administrator
+
+
+═══════════════════════════════════════════════════════════════════
+  WHAT TO DO AFTER FIRST RUN
+═══════════════════════════════════════════════════════════════════
+
+1. REVIEW THE REPORT
+   - Open the HTML report
+   - Look for RED (FAIL) items first
+   - Then review YELLOW (WARN) items
+
+2. PRIORITIZE FIXES
+   - Missing system folders = CRITICAL
+   - Disk health issues = CRITICAL
+   - Suspicious processes = CRITICAL
+   - Disabled security = HIGH
+   - Outdated updates = MEDIUM
+
+3. RUN RECOMMENDED REPAIRS
+   - sfc /scannow (system file checker)
+   - DISM /Online /Cleanup-Image /RestoreHealth
+   - chkdsk C: /f (file system repair)
+   - Windows Update
+
+4. RUN AGAIN
+   - After fixes, run audit again
+   - Compare reports to see improvement
+   - Keep reports for baseline comparison
+
+
+═══════════════════════════════════════════════════════════════════
+  CONTACT & SUPPORT
+═══════════════════════════════════════════════════════════════════
+
+If you encounter issues:
+1. Check README.md for detailed documentation
+2. Review Config.psd1 to adjust settings
+3. Enable verbose logging: Edit Config.psd1 → VerboseLogging = $true
+4. Check transcript log in Reports folder
+
+For security issues or questions, refer to the README.md file.
+
+
+═══════════════════════════════════════════════════════════════════
+
+That's it! You're ready to run comprehensive security audits.
+
+Good luck with your security journey!
+
+═══════════════════════════════════════════════════════════════════
