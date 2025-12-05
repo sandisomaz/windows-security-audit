@@ -1,6 +1,10 @@
-# 🛡️ Windows Security Audit Framework v5.1
+# 🛡️ Windows Security Audit Framework
 
-A comprehensive, enterprise-grade PowerShell-based security audit tool for Windows systems. Performs deep forensic analysis, threat hunting, and system integrity checks.
+> **Version 5.1** - Enterprise-grade security auditing tool for Windows systems
+
+A comprehensive PowerShell-based security audit framework with GUI that performs deep forensic analysis, threat hunting, and system integrity checks.
+
+---
 
 ## 🎯 Features
 
@@ -15,14 +19,69 @@ A comprehensive, enterprise-grade PowerShell-based security audit tool for Windo
 - ✅ **Forensic Checks** - Browser extensions, HOSTS file, PUPs, recent executables
 - ✅ **Risk Scoring** - Weighted severity scoring with detailed recommendations
 
-### Advanced Detection
-- Process injection and hollowing detection
-- Fileless malware command line analysis
-- Unsigned binary detection in suspicious locations
-- Network-listening process identification
-- WMI persistence mechanism detection
-- File system corruption detection
-- Gibberish filename detection (corrupted file systems)
+### 🎨 GUI Application
+- Modern, user-friendly interface
+- One-click scanning
+- Real-time progress updates
+- Automatic HTML report generation
+- Multiple scan modes (Quick, Standard, Deep, Forensic)
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+- Windows 10/11
+- PowerShell 5.1 or higher
+- Administrator privileges (recommended)
+
+### Installation
+
+1. **Clone the repository:**
+   ```powershell
+   git clone https://github.com/sandisomaz/WindowsSecurityAudit.git
+   cd WindowsSecurityAudit
+   ```
+
+2. **Launch the GUI:**
+   - Double-click `START_HERE.bat`
+   - Or right-click → "Run as Administrator"
+
+3. **Choose your scan mode and click Start!**
+
+---
+
+## 📖 Usage
+
+### GUI Mode (Recommended)
+```batch
+START_HERE.bat
+```
+
+### Command Line
+```powershell
+# Default scan (Deep mode)
+.\SecurityAudit.ps1
+
+# Quick scan (essential checks only)
+.\SecurityAudit.ps1 -Mode Quick
+
+# Full forensic analysis
+.\SecurityAudit.ps1 -Mode Forensic
+```
+
+---
+
+## 📊 Scan Modes
+
+| Mode | Duration | Description |
+|------|----------|-------------|
+| **⚡ Quick** | 2-3 min | Essential security checks, file system integrity |
+| **📋 Standard** | 5-7 min | Core checks + persistence hunting |
+| **🔍 Deep** | 10-15 min | Comprehensive audit (recommended) |
+| **🔬 Forensic** | 20+ min | Full investigation with verbose logging |
+
+---
 
 ## 📁 Project Structure
 

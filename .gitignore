@@ -1,0 +1,17 @@
+# Reports (don't upload user scan results)
+Reports/
+WinSecAudit_*/
+
+# Windows thumbnail cache
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+
+# PowerShell transcript logs
+audit_transcript_*.log
+
+# User-specific config (if any)
+*_local.psd1
