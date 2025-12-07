@@ -234,6 +234,60 @@ function Get-FileHashSafe {
 
 #endregion
 
+#region Fix Recommendations
+
+function Format-FixRecommendation {
+    <#
+    .SYNOPSIS
+        Formats a fix recommendation with Quick Fix, Manual Fix, and More Info
+    .PARAMETER Problem
+        Description of the problem
+    .PARAMETER QuickFix
+        PowerShell command to fix (if safe to automate)
+    .PARAMETER ManualSteps
+        Array of manual steps
+    .PARAMETER MoreInfo
+        URL for more information
+    .PARAMETER IsSafe
+        Whether the QuickFix is safe to run automatically
+    #>
+    param(
+        [Parameter(Mandatory)]
+        [string]$Problem,
+        
+        [string]$QuickFix = "",
+        
+        [string[]]$ManualSteps = @(),
+        
+        [string]$MoreInfo = "",
+        
+        [bool]$IsSafe = $false
+    )
+    
+    $recommendation = "$Problem`n`n"
+    
+    if ($QuickFix) {
+        $recommendation += "Run: $QuickFix`n`n"
+    }
+    
+    if ($ManualSteps.Count -gt 0) {
+        $recommendation += "MANUAL FIX:`n"
+        for ($i = 0; $i -lt $ManualSteps.Count; $i++) {
+            $recommendation += "   $($i + 1). $($ManualSteps[$i])`n"
+        }
+        $recommendation += "`n"
+    }
+    
+    if ($MoreInfo) {
+        $recommendation += "MORE INFO:`n"
+        $recommendation += "   $MoreInfo`n"
+    }
+    
+    return $recommendation.TrimEnd()
+}
+
+#endregion
+
 #region Risk Scoring
 
 function Get-RiskScore {
@@ -250,7 +304,7 @@ function Get-RiskScore {
             RawScore      = 0
             MaxPossible   = 0
             RiskPercent   = 0
-            SeverityLabel = "UNKNOWN"
+            SeverityLabel = "LOW"
         }
     }
     
@@ -306,5 +360,6 @@ Export-ModuleMember -Function @(
     'Get-SystemInfo',
     'ConvertTo-SeverityText',
     'Get-FileHashSafe',
-    'Get-RiskScore'
+    'Get-RiskScore',
+    'Format-FixRecommendation'
 )

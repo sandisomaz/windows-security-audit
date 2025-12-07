@@ -18,13 +18,15 @@ C:\WindowsSecurityAudit\                    (or any location you prefer)
 │
 └── Modules\                         ← Create this folder
     ├── Core.psm1
-    ├── SystemHardening.psm1
     ├── DefenderAudit.psm1
     ├── FirewallAudit.psm1
     ├── ProcessTriage.psm1
     ├── PersistenceHunting.psm1
     ├── NetworkAudit.psm1
     ├── ForensicChecks.psm1
+    ├── BrowserAudit.psm1
+    ├── CryptoMinerDetection.psm1
+    ├── SystemHardening.psm1
     ├── FileSystemAudit.psm1
     └── ReportGenerator.psm1
 
@@ -43,15 +45,17 @@ Copy each artifact (code block) from Claude into the correct file:
 
 === MODULES (all go in Modules\ folder) ===
 6. Core.psm1 → Save to: C:\SecurityAudit\Modules\Core.psm1
-7. SystemHardening.psm1 → Save to: C:\SecurityAudit\Modules\SystemHardening.psm1
-8. DefenderAudit.psm1 → Save to: C:\SecurityAudit\Modules\DefenderAudit.psm1
-9. FirewallAudit.psm1 → Save to: C:\SecurityAudit\Modules\FirewallAudit.psm1
-10. ProcessTriage.psm1 → Save to: C:\SecurityAudit\Modules\ProcessTriage.psm1
-11. PersistenceHunting.psm1 → Save to: C:\SecurityAudit\Modules\PersistenceHunting.psm1
-12. NetworkAudit.psm1 → Save to: C:\SecurityAudit\Modules\NetworkAudit.psm1
-13. ForensicChecks.psm1 → Save to: C:\SecurityAudit\Modules\ForensicChecks.psm1
-14. FileSystemAudit.psm1 → Save to: C:\SecurityAudit\Modules\FileSystemAudit.psm1
-15. ReportGenerator.psm1 → Save to: C:\SecurityAudit\Modules\ReportGenerator.psm1
+7. DefenderAudit.psm1 → Save to: C:\SecurityAudit\Modules\DefenderAudit.psm1
+8. FirewallAudit.psm1 → Save to: C:\SecurityAudit\Modules\FirewallAudit.psm1
+9. ProcessTriage.psm1 → Save to: C:\SecurityAudit\Modules\ProcessTriage.psm1
+10. PersistenceHunting.psm1 → Save to: C:\SecurityAudit\Modules\PersistenceHunting.psm1
+11. NetworkAudit.psm1 → Save to: C:\SecurityAudit\Modules\NetworkAudit.psm1
+12. ForensicChecks.psm1 → Save to: C:\SecurityAudit\Modules\ForensicChecks.psm1
+13. FileSystemAudit.psm1 → Save to: C:\SecurityAudit\Modules\FileSystemAudit.psm1
+14. ReportGenerator.psm1 → Save to: C:\SecurityAudit\Modules\ReportGenerator.psm1
+15. BrowserAudit.psm1 → Save to: C:\SecurityAudit\Modules\BrowserAudit.psm1
+16. CryptoMinerDetection.psm1 → Save to: C:\SecurityAudit\Modules\CryptoMinerDetection.psm1
+17. SystemHardening.psm1 → Save to: C:\SecurityAudit\Modules\SystemHardening.psm1
 
 
 STEP 3: LAUNCH THE APPLICATION

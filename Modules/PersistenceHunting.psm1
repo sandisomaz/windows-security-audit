@@ -60,8 +60,8 @@ function Test-WMIPersistence {
         $suspiciousWMI = @()
         
         foreach ($binding in $bindings) {
-            $filterName = $binding.Filter -replace '.*Name="([^"]+)".*', '$1'
-            $consumerName = $binding.Consumer -replace '.*Name="([^"]+)".*', '$1'
+            $filterName = ($binding.Filter -split '"')[1]
+            $consumerName = ($binding.Consumer -split '"')[1]
             
             $filter = $filters | Where-Object { $_.Name -eq $filterName }
             $consumer = $consumers | Where-Object { $_.Name -eq $consumerName }
@@ -88,13 +88,29 @@ function Test-WMIPersistence {
             
             $wmiJson = $suspiciousWMI | ConvertTo-Json -Compress
             
+            $manualSteps = @(
+                "This requires advanced tools to remove safely.",
+                "Use Sysinternals Autoruns: Launch Autoruns64.exe as Admin and go to the 'WMI' tab.",
+                "Uncheck the suspicious entries found by this audit, which are: $($suspiciousWMI.FilterName -join ', ').",
+                "Alternatively, use PowerShell to manually remove the Filter, Consumer, and Binding (ADVANCED USERS ONLY).",
+                "Example removal commands:",
+                "Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding -Filter ""Filter = '__EventFilter.Name=''FILTER_NAME'''"" | Remove-WmiObject",
+                "Get-WmiObject -Namespace root\subscription -Class __EventFilter -Filter ""Name='FILTER_NAME'"" | Remove-WmiObject",
+                "Get-WmiObject -Namespace root\subscription -Class CommandLineEventConsumer -Filter ""Name='CONSUMER_NAME'"" | Remove-WmiObject"
+            )
+            
+            $notes = Format-FixRecommendation `
+                -Problem "CRITICAL: WMI Event Subscription persistence detected." `
+                -ManualSteps $manualSteps `
+                -MoreInfo "https://www.fireeye.com/blog/threat-research/2016/09/wmi_persistence.html"
+
             Add-AuditFinding `
                 -Id "Persist_WMI" `
                 -Title "WMI Persistence Detected" `
                 -Value "Found $($suspiciousWMI.Count) subscription(s)" `
                 -Severity 0 `
                 -Weight 25 `
-                -Notes "CRITICAL: WMI persistence detected. This is a common advanced malware technique. Details: $wmiJson" `
+                -Notes $notes `
                 -Category "Persistence"
         }
         else {
@@ -159,12 +175,22 @@ function Test-RegistryAutoruns {
     if ($foundEntries.Count -gt 0) {
         Write-AuditResult "Registry Autoruns" "Found $($foundEntries.Count) entry(ies)" -Status Info
         
+        $notes = Format-FixRecommendation `
+            -Problem "A review of registry autorun entries is recommended. Malware and unwanted programs often add themselves here to start automatically with Windows." `
+            -ManualSteps @(
+                "Use Sysinternals Autoruns: Launch Autoruns64.exe and go to the 'Logon' tab.",
+                "Review the entries listed in the 'HKLM\...\Run', 'HKCU\...\Run' sections.",
+                "Uncheck any entries you do not recognize or that are from unverified publishers.",
+                "You can also use Registry Editor (regedit.exe) to navigate to the keys and delete the values, but Autoruns is safer."
+            ) `
+            -MoreInfo "https://docs.microsoft.com/en-us/sysinternals/downloads/autoruns"
+
         Add-AuditFinding `
             -Id "Persist_RegRun" `
             -Title "Registry Autorun Entries" `
             -Value "Found $($foundEntries.Count) entry(ies)" `
             -Severity 3 `
-            -Notes "Review these startup programs. Remove any unknown or suspicious entries." `
+            -Notes $notes `
             -Category "Persistence"
     }
     else {
@@ -207,12 +233,23 @@ function Test-ScheduledTasks {
             }
             
             if ($suspiciousTasks.Count -gt 0) {
+                $taskNames = ($suspiciousTasks | Select-Object -ExpandProperty TaskName) -join ", "
+                $notes = Format-FixRecommendation `
+                    -Problem "Found scheduled tasks that are not from Microsoft and may be suspicious. Malware frequently uses scheduled tasks to achieve persistence or run malicious code periodically." `
+                    -ManualSteps @(
+                        "Open Task Scheduler.",
+                        "In the 'Task Scheduler Library', look for the following tasks: $taskNames",
+                        "Review the 'Actions' tab for each task. Does it run a script or executable from a strange location (e.g., AppData, Temp)?",
+                        "Review the 'Triggers' tab. Does it run frequently or at unusual times?",
+                        "If a task is suspicious, right-click and 'Disable' it first. If the system remains stable, you can later 'Delete' it."
+                    )
+
                 Add-AuditFinding `
                     -Id "Persist_Tasks" `
                     -Title "Scheduled Tasks" `
                     -Value "Found $($suspiciousTasks.Count) potentially suspicious task(s)" `
                     -Severity 2 `
-                    -Notes "Review these tasks in Task Scheduler. Malware often uses scheduled tasks for persistence." `
+                    -Notes $notes `
                     -Category "Persistence"
             }
             else {
@@ -261,12 +298,21 @@ function Test-ThirdPartyServices {
             Write-Host "  - $($svc.DisplayName) [$($svc.Name)]" -ForegroundColor Gray
         }
         
+        $notes = Format-FixRecommendation `
+            -Problem "A review of running third-party services is recommended. While most are legitimate, malware can install itself as a service to gain persistence and elevated privileges." `
+            -ManualSteps @(
+                "Open the Services application (services.msc).",
+                "For each service listed in the audit, check its 'Description' and 'Path to executable'.",
+                "If the path points to a suspicious location (like a user's AppData folder) or the description is missing/generic, it warrants investigation.",
+                "If a service is confirmed to be malicious, set its 'Startup type' to 'Disabled' and then stop it."
+            )
+
         Add-AuditFinding `
             -Id "Persist_Services" `
             -Title "Third-Party Services" `
             -Value "Found $($services.Count) running service(s)" `
             -Severity 3 `
-            -Notes "Review these services. Disable or uninstall any that are not needed." `
+            -Notes $notes `
             -Category "Persistence"
     }
     else {
@@ -305,12 +351,21 @@ function Test-StartupFolder {
     if ($foundItems.Count -gt 0) {
         Write-AuditResult "Startup Folder" "Found $($foundItems.Count) item(s)" -Status Info
         
+        $notes = Format-FixRecommendation `
+            -Problem "Items were found in the Startup folders. These programs will launch automatically when the user logs in." `
+            -ManualSteps @(
+                "Open File Explorer and navigate to the following two locations:",
+                "1. For the current user: shell:startup",
+                "2. For all users: shell:common startup",
+                "Review the shortcuts and files in these folders. If you find anything you did not intentionally place there, delete it."
+            )
+
         Add-AuditFinding `
             -Id "Persist_Startup" `
             -Title "Startup Folder Items" `
             -Value "Found $($foundItems.Count) item(s)" `
             -Severity 3 `
-            -Notes "Review startup folder items. Remove any unknown shortcuts or executables." `
+            -Notes $notes `
             -Category "Persistence"
     }
     else {

@@ -1,14 +1,8 @@
 <#
 .SYNOPSIS
-    Windows Defender and antivirus analysis module
+    Windows Defender and antivirus analysis module (ENHANCED)
 .DESCRIPTION
-    Checks:
-    - Windows Defender status
-    - Real-time protection
-    - Signature updates
-    - Tamper protection
-    - Cloud-delivered protection
-    - Recent threat detections
+    Checks with improved recommendations and fix commands
 #>
 
 using module .\Core.psm1
@@ -40,12 +34,22 @@ function Invoke-DefenderAudit {
     else {
         Write-AuditResult "Windows Defender" "Not available or Third-party AV installed" -Status Warn
         
+        $notes = Format-FixRecommendation `
+            -Problem "Windows Defender is not available. This may be because a third-party antivirus is installed." `
+            -ManualSteps @(
+                "Check if third-party antivirus is installed (McAfee, Norton, Avast, etc.)",
+                "Verify the third-party AV is active and up-to-date",
+                "If no AV is installed, reinstall Windows Defender",
+                "Go to Windows Security → Virus & threat protection"
+            ) `
+            -MoreInfo "https://support.microsoft.com/windows-security"
+        
         Add-AuditFinding `
             -Id "Def_NotAvailable" `
             -Title "Windows Defender" `
             -Value "Not available" `
             -Severity 2 `
-            -Notes "Defender may be disabled by third-party antivirus. Verify alternative protection is active." `
+            -Notes $notes `
             -Category "Defender"
     }
     
@@ -72,13 +76,25 @@ function Test-DefenderProtection {
     else {
         Write-AuditResult "Real-Time Protection" "DISABLED" -Status Fail
         
+        $notes = Format-FixRecommendation `
+            -Problem "CRITICAL: Real-time protection is disabled. Your system is vulnerable to malware attacks." `
+            -QuickFix "Set-MpPreference -DisableRealtimeMonitoring `$false" `
+            -ManualSteps @(
+                "Open Windows Security (search in Start menu)",
+                "Click 'Virus & threat protection'",
+                "Under 'Virus & threat protection settings', click 'Manage settings'",
+                "Toggle 'Real-time protection' to ON"
+            ) `
+            -MoreInfo "https://support.microsoft.com/windows/turn-on-real-time-and-cloud-delivered-protection" `
+            -IsSafe $true
+        
         Add-AuditFinding `
             -Id "Def_RealTime" `
             -Title "Real-Time Protection" `
             -Value "Disabled" `
             -Severity 0 `
             -Weight 25 `
-            -Notes "CRITICAL: Real-time protection is disabled. Your system is vulnerable to malware." `
+            -Notes $notes `
             -Category "Defender"
     }
     
@@ -96,13 +112,23 @@ function Test-DefenderProtection {
     else {
         Write-AuditResult "Anti-Spyware" "DISABLED" -Status Fail
         
+        $notes = Format-FixRecommendation `
+            -Problem "CRITICAL: Anti-spyware protection is disabled." `
+            -QuickFix "Set-MpPreference -DisableAntiSpyware `$false" `
+            -ManualSteps @(
+                "Open Windows Security",
+                "Go to Virus & threat protection",
+                "Enable all protection features"
+            ) `
+            -IsSafe $true
+        
         Add-AuditFinding `
             -Id "Def_AntiSpyware" `
             -Title "Anti-Spyware Protection" `
             -Value "Disabled" `
             -Severity 0 `
             -Weight 25 `
-            -Notes "CRITICAL: Anti-spyware protection is disabled." `
+            -Notes $notes `
             -Category "Defender"
     }
     
@@ -120,12 +146,22 @@ function Test-DefenderProtection {
     else {
         Write-AuditResult "Behavior Monitoring" "DISABLED" -Status Warn
         
+        $notes = Format-FixRecommendation `
+            -Problem "Behavior monitoring detects suspicious activity and fileless malware." `
+            -QuickFix "Set-MpPreference -DisableBehaviorMonitoring `$false" `
+            -ManualSteps @(
+                "Open Windows Security",
+                "Go to App & browser control",
+                "Enable 'Reputation-based protection'"
+            ) `
+            -IsSafe $true
+        
         Add-AuditFinding `
             -Id "Def_Behavior" `
             -Title "Behavior Monitoring" `
             -Value "Disabled" `
             -Severity 2 `
-            -Notes "Behavior monitoring detects suspicious activity. Recommended to enable." `
+            -Notes $notes `
             -Category "Defender"
     }
     
@@ -165,12 +201,24 @@ function Test-DefenderProtection {
     else {
         Write-AuditResult "Cloud Protection" "DISABLED" -Status Warn
         
+        $notes = Format-FixRecommendation `
+            -Problem "Cloud protection provides faster threat detection using Microsoft's cloud intelligence." `
+            -QuickFix "Set-MpPreference -MAPSReporting Advanced" `
+            -ManualSteps @(
+                "Open Windows Security",
+                "Go to Virus & threat protection",
+                "Click 'Manage settings'",
+                "Enable 'Cloud-delivered protection'"
+            ) `
+            -MoreInfo "https://support.microsoft.com/cloud-delivered-protection" `
+            -IsSafe $true
+        
         Add-AuditFinding `
             -Id "Def_Cloud" `
             -Title "Cloud-Delivered Protection" `
             -Value "Disabled" `
             -Severity 2 `
-            -Notes "Cloud protection provides faster threat detection. Recommended to enable." `
+            -Notes $notes `
             -Category "Defender"
     }
 }
@@ -196,16 +244,40 @@ function Test-DefenderSignatures {
         elseif ($daysSince -le 7) {
             Write-AuditResult "Signature Update" "Updated $daysSince day(s) ago" -Status Warn
             
+            $notes = Format-FixRecommendation `
+                -Problem "Antivirus signatures are slightly outdated ($daysSince days old)." `
+                -QuickFix "Update-MpSignature" `
+                -ManualSteps @(
+                    "Open Windows Security",
+                    "Go to Virus & threat protection",
+                    "Click 'Check for updates'",
+                    "Or run Windows Update"
+                ) `
+                -IsSafe $true
+            
             Add-AuditFinding `
                 -Id "Def_Signatures" `
                 -Title "Antivirus Signatures" `
                 -Value "Updated $daysSince day(s) ago" `
                 -Severity 2 `
-                -Notes "Signatures are slightly outdated. Update Windows Defender." `
+                -Notes $notes `
                 -Category "Defender"
         }
         else {
             Write-AuditResult "Signature Update" "Updated $daysSince day(s) ago (OUTDATED)" -Status Fail
+            
+            $notes = Format-FixRecommendation `
+                -Problem "CRITICAL: Antivirus signatures are severely outdated ($daysSince days old). You are vulnerable to recent malware." `
+                -QuickFix "Update-MpSignature -UpdateSource MicrosoftUpdateServer" `
+                -ManualSteps @(
+                    "Open Settings → Windows Update",
+                    "Click 'Check for updates'",
+                    "Install all available updates",
+                    "Restart if required",
+                    "Then run: Update-MpSignature in PowerShell"
+                ) `
+                -MoreInfo "https://support.microsoft.com/update-windows-defender" `
+                -IsSafe $true
             
             Add-AuditFinding `
                 -Id "Def_Signatures" `
@@ -213,7 +285,7 @@ function Test-DefenderSignatures {
                 -Value "Updated $daysSince day(s) ago" `
                 -Severity 0 `
                 -Weight 20 `
-                -Notes "CRITICAL: Signatures are severely outdated. Update immediately: Update-MpSignature" `
+                -Notes $notes `
                 -Category "Defender"
         }
         
@@ -260,12 +332,25 @@ function Test-DefenderScans {
     else {
         Write-AuditResult "Last Full Scan" "Never run" -Status Warn
         
+        $notes = Format-FixRecommendation `
+            -Problem "Full system scan has never been run. A full scan checks all files for malware." `
+            -QuickFix "Start-MpScan -ScanType FullScan" `
+            -ManualSteps @(
+                "Open Windows Security",
+                "Go to Virus & threat protection",
+                "Click 'Scan options'",
+                "Select 'Full scan'",
+                "Click 'Scan now' (takes 1-2 hours)"
+            ) `
+            -MoreInfo "https://support.microsoft.com/run-scan-windows-security" `
+            -IsSafe $false
+        
         Add-AuditFinding `
             -Id "Def_FullScan" `
             -Title "Full System Scan" `
             -Value "Never run" `
             -Severity 2 `
-            -Notes "Run a full scan: Start-MpScan -ScanType FullScan" `
+            -Notes $notes `
             -Category "Defender"
     }
     
@@ -297,12 +382,22 @@ function Test-TamperProtection {
         else {
             Write-AuditResult "Tamper Protection" "DISABLED" -Status Warn
             
+            $notes = Format-FixRecommendation `
+                -Problem "Tamper Protection prevents malware from disabling Windows Defender." `
+                -ManualSteps @(
+                    "Open Windows Security",
+                    "Go to Virus & threat protection",
+                    "Click 'Manage settings'",
+                    "Scroll down and toggle 'Tamper Protection' to ON"
+                ) `
+                -MoreInfo "https://support.microsoft.com/tamper-protection"
+            
             Add-AuditFinding `
                 -Id "Def_TamperProtection" `
                 -Title "Tamper Protection" `
                 -Value "Disabled" `
                 -Severity 2 `
-                -Notes "Tamper Protection prevents malware from disabling Defender. Enable in Windows Security." `
+                -Notes $notes `
                 -Category "Defender"
         }
     }
@@ -334,12 +429,24 @@ function Test-DefenderThreats {
         
         $threatNames = $threats | ForEach-Object { $_.ThreatName } | Select-Object -Unique
         
+        $notes = Format-FixRecommendation `
+            -Problem "Threats were recently detected: $($threatNames -join ', ')" `
+            -QuickFix "Remove-MpThreat" `
+            -ManualSteps @(
+                "Open Windows Security",
+                "Go to Virus & threat protection",
+                "Click 'Protection history'",
+                "Review each threat and take recommended action",
+                "Run a full scan to ensure all threats are removed"
+            ) `
+            -MoreInfo "https://support.microsoft.com/remove-malware"
+        
         Add-AuditFinding `
             -Id "Def_Threats" `
             -Title "Recent Threat Detections" `
             -Value "$($threats.Count) detection(s)" `
             -Severity 2 `
-            -Notes "Threats detected: $($threatNames -join ', '). Ensure all were successfully removed." `
+            -Notes $notes `
             -Category "Defender"
     }
     else {
@@ -366,7 +473,7 @@ function Test-SecurityCenter {
             
             $productNames = @()
             foreach ($av in $avProducts) {
-                Write-Host "  - $($av.displayName) (State: $($av.productState))" -ForegroundColor Gray
+                Write-Host "  - $($av.displayName)" -ForegroundColor Gray
                 $productNames += $av.displayName
             }
             

@@ -1,345 +1,229 @@
 <#
 .SYNOPSIS
     Windows Security Audit Framework - GUI Application
-.DESCRIPTION
-    Graphical user interface for the security audit tool
-    Makes running comprehensive security audits as easy as clicking a button
-.NOTES
-    Author: Sandiso Mazibuko
-    Version: 5.1 GUI
-    Requires: PowerShell 5.1+, .NET Framework
+    Version 5.4 (Replaces dynamic event handler with explicit handlers)
 #>
-
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
-# Get script directory
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-#region Helper Functions
-
-function Write-Log {
-    param([string]$Message, [string]$Color = "Black")
-    
-    $timestamp = Get-Date -Format "HH:mm:ss"
-    $logMessage = "[$timestamp] $Message"
-    
-    $script:LogTextBox.SelectionStart = $script:LogTextBox.TextLength
-    $script:LogTextBox.SelectionLength = 0
-    $script:LogTextBox.SelectionColor = [System.Drawing.Color]::FromName($Color)
-    $script:LogTextBox.AppendText("$logMessage`r`n")
-    $script:LogTextBox.SelectionColor = $script:LogTextBox.ForeColor
-    $script:LogTextBox.ScrollToCaret()
-    
-    [System.Windows.Forms.Application]::DoEvents()
-}
-
-function Start-AuditProcess {
-    param([string]$Mode)
-    
-    # Disable controls during scan
-    $script:StartButton.Enabled = $false
-    $script:QuickButton.Enabled = $false
-    $script:StandardButton.Enabled = $false
-    $script:DeepButton.Enabled = $false
-    $script:ForensicButton.Enabled = $false
-    $script:ProgressBar.Value = 0
-    $script:ProgressBar.Visible = $true
-    $script:StatusLabel.Text = "Status: Running $Mode scan..."
-    
-    # Clear log
-    $script:LogTextBox.Clear()
-    
-    Write-Log "═══════════════════════════════════════════════════════" "DarkBlue"
-    Write-Log "  Windows Security Audit Framework v5.1" "DarkBlue"
-    Write-Log "═══════════════════════════════════════════════════════" "DarkBlue"
-    Write-Log "Starting $Mode scan..." "Green"
-    Write-Log ""
-    
-    # Update progress
-    $script:ProgressBar.Value = 10
-    
-    # Build command
-    $auditScript = Join-Path $ScriptRoot "SecurityAudit.ps1"
-    
-    if (-not (Test-Path $auditScript)) {
-        [System.Windows.Forms.MessageBox]::Show(
-            "SecurityAudit.ps1 not found in the same directory as this GUI!",
-            "Error",
-            [System.Windows.Forms.MessageBoxButtons]::OK,
-            [System.Windows.Forms.MessageBoxIcon]::Error
-        )
-        Reset-Controls
-        return
-    }
-    
-    # Create background job to run audit
-    $job = Start-Job -ScriptBlock {
-        param($Script, $Mode, $ScriptRoot)
-        
-        Set-Location $ScriptRoot
-        & $Script -Mode $Mode
-        
-    } -ArgumentList $auditScript, $Mode, $ScriptRoot
-    
-    # Monitor job progress
-    $timer = New-Object System.Windows.Forms.Timer
-    $timer.Interval = 500
-    $progressStep = 20
-    
-    $timer.Add_Tick({
-        if ($job.State -eq 'Completed') {
-            $timer.Stop()
-            $timer.Dispose()
-            
-            $script:ProgressBar.Value = 100
-            
-            # Get job output
-            $output = Receive-Job -Job $job
-            Remove-Job -Job $job
-            
-            Write-Log ""
-            Write-Log "═══════════════════════════════════════════════════════" "DarkGreen"
-            Write-Log "  SCAN COMPLETE!" "DarkGreen"
-            Write-Log "═══════════════════════════════════════════════════════" "DarkGreen"
-            Write-Log ""
-            Write-Log "Reports have been generated on your Desktop." "Green"
-            Write-Log "Opening HTML report..." "Green"
-            
-            # Find and open the report
-            $desktop = [Environment]::GetFolderPath("Desktop")
-            $latestReport = Get-ChildItem -Path $desktop -Filter "WinSecAudit_*" -Directory |
-                Sort-Object LastWriteTime -Descending |
-                Select-Object -First 1
-            
-            if ($latestReport) {
-                $htmlReport = Join-Path $latestReport.FullName "report.html"
-                if (Test-Path $htmlReport) {
-                    Start-Process $htmlReport
-                }
-            }
-            
-            $script:StatusLabel.Text = "Status: Scan completed successfully"
-            $script:StatusLabel.ForeColor = [System.Drawing.Color]::Green
-            
-            [System.Windows.Forms.MessageBox]::Show(
-                "Security audit completed successfully!`r`n`r`nReports have been saved to your Desktop.",
-                "Success",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Information
-            )
-            
-            Reset-Controls
-        }
-        elseif ($job.State -eq 'Failed') {
-            $timer.Stop()
-            $timer.Dispose()
-            
-            $error = Receive-Job -Job $job -ErrorAction SilentlyContinue
-            Remove-Job -Job $job
-            
-            Write-Log ""
-            Write-Log "ERROR: Scan failed!" "Red"
-            Write-Log "$error" "Red"
-            
-            $script:StatusLabel.Text = "Status: Scan failed"
-            $script:StatusLabel.ForeColor = [System.Drawing.Color]::Red
-            
-            [System.Windows.Forms.MessageBox]::Show(
-                "Security audit failed. Check the log for details.",
-                "Error",
-                [System.Windows.Forms.MessageBoxButtons]::OK,
-                [System.Windows.Forms.MessageBoxIcon]::Error
-            )
-            
-            Reset-Controls
-        }
-        else {
-            # Still running - update progress
-            if ($script:ProgressBar.Value -lt 90) {
-                $script:ProgressBar.Value += 2
-            }
-            
-            Write-Log "Scanning..." "Gray"
-        }
-    }.GetNewClosure())
-    
-    $timer.Start()
-}
-
-function Reset-Controls {
-    $script:StartButton.Enabled = $true
-    $script:QuickButton.Enabled = $true
-    $script:StandardButton.Enabled = $true
-    $script:DeepButton.Enabled = $true
-    $script:ForensicButton.Enabled = $true
-    $script:ProgressBar.Visible = $false
-    $script:ProgressBar.Value = 0
-}
-
-#endregion
-
-#region Create Main Form
-
+# --- GUI SETUP ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Windows Security Audit Framework v5.1"
-$form.Size = New-Object System.Drawing.Size(900, 700)
+$form.Text = "Windows Security Audit Framework v5.4"
+$form.Size = New-Object System.Drawing.Size(900, 720)
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = [System.Windows.Forms.FormBorderStyle]::FixedDialog
 $form.MaximizeBox = $false
 $form.BackColor = [System.Drawing.Color]::FromArgb(240, 240, 245)
 
-#endregion
+$progressBar = New-Object System.Windows.Forms.ProgressBar
+$progressBar.Size = New-Object System.Drawing.Size(860, 25)
+$progressBar.Location = New-Object System.Drawing.Point(20, 610)
+$progressBar.Style = "Continuous"
+$progressBar.Visible = $false
+$form.Controls.Add($progressBar)
 
-#region Header Panel
+$statusLabel = New-Object System.Windows.Forms.Label
+$statusLabel.Text = "Status: Ready"
+$statusLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
+$statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(102, 126, 234)
+$statusLabel.AutoSize = $true
+$statusLabel.Location = New-Object System.Drawing.Point(20, 642)
+$form.Controls.Add($statusLabel)
+
+$logBox = New-Object System.Windows.Forms.RichTextBox
+$logBox.Size = New-Object System.Drawing.Size(860, 360)
+$logBox.Location = New-Object System.Drawing.Point(20, 230)
+$logBox.Font = New-Object System.Drawing.Font("Consolas", 9)
+$logBox.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
+$logBox.ForeColor = [System.Drawing.Color]::FromArgb(220, 220, 220)
+$logBox.ReadOnly = $true
+$form.Controls.Add($logBox)
 
 $headerPanel = New-Object System.Windows.Forms.Panel
 $headerPanel.Size = New-Object System.Drawing.Size(900, 80)
-$headerPanel.Location = New-Object System.Drawing.Point(0, 0)
 $headerPanel.BackColor = [System.Drawing.Color]::FromArgb(102, 126, 234)
 $form.Controls.Add($headerPanel)
 
-$titleLabel = New-Object System.Windows.Forms.Label
-$titleLabel.Text = "🛡️ Windows Security Audit Framework"
-$titleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 18, [System.Drawing.FontStyle]::Bold)
-$titleLabel.ForeColor = [System.Drawing.Color]::White
-$titleLabel.AutoSize = $true
-$titleLabel.Location = New-Object System.Drawing.Point(20, 15)
-$headerPanel.Controls.Add($titleLabel)
+$title = New-Object System.Windows.Forms.Label
+$title.Text = "Windows Security Audit Framework"
+$title.Font = New-Object System.Drawing.Font("Segoe UI", 18, [System.Drawing.FontStyle]::Bold)
+$title.ForeColor = [System.Drawing.Color]::White
+$title.AutoSize = $true
+$title.Location = New-Object System.Drawing.Point(20, 15)
+$headerPanel.Controls.Add($title)
 
-$subtitleLabel = New-Object System.Windows.Forms.Label
-$subtitleLabel.Text = "Comprehensive Security Analysis & Threat Hunting"
-$subtitleLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10)
-$subtitleLabel.ForeColor = [System.Drawing.Color]::FromArgb(220, 220, 255)
-$subtitleLabel.AutoSize = $true
-$subtitleLabel.Location = New-Object System.Drawing.Point(20, 48)
-$headerPanel.Controls.Add($subtitleLabel)
+$btnQuick = New-Object System.Windows.Forms.Button
+$btnQuick.Text = "Quick Scan`r`n(2-3 min)"
+$btnQuick.Size = New-Object System.Drawing.Size(160, 70)
+$btnQuick.Location = New-Object System.Drawing.Point(20, 100)
+$btnQuick.BackColor = [System.Drawing.Color]::FromArgb(79, 195, 247)
+$btnQuick.FlatStyle = "Flat"
+$form.Controls.Add($btnQuick)
 
-#endregion
+$btnStandard = New-Object System.Windows.Forms.Button
+$btnStandard.Text = "Standard Scan`r`n(5-7 min)"
+$btnStandard.Size = New-Object System.Drawing.Size(160, 70)
+$btnStandard.Location = New-Object System.Drawing.Point(190, 100)
+$btnStandard.BackColor = [System.Drawing.Color]::FromArgb(100, 221, 23)
+$btnStandard.FlatStyle = "Flat"
+$form.Controls.Add($btnStandard)
 
-#region Scan Mode Panel
+$btnDeep = New-Object System.Windows.Forms.Button
+$btnDeep.Text = "Deep Scan`r`n(Recommended)"
+$btnDeep.Size = New-Object System.Drawing.Size(160, 70)
+$btnDeep.Location = New-Object System.Drawing.Point(360, 100)
+$btnDeep.BackColor = [System.Drawing.Color]::FromArgb(255, 167, 38)
+$btnDeep.FlatStyle = "Flat"
+$form.Controls.Add($btnDeep)
 
-$modePanel = New-Object System.Windows.Forms.GroupBox
-$modePanel.Text = " Select Scan Mode "
-$modePanel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$modePanel.Size = New-Object System.Drawing.Size(860, 120)
-$modePanel.Location = New-Object System.Drawing.Point(20, 100)
-$modePanel.ForeColor = [System.Drawing.Color]::FromArgb(50, 50, 50)
-$form.Controls.Add($modePanel)
+$btnForensic = New-Object System.Windows.Forms.Button
+$btnForensic.Text = "Forensic Scan`r`n(20+ min)"
+$btnForensic.Size = New-Object System.Drawing.Size(160, 70)
+$btnForensic.Location = New-Object System.Drawing.Point(530, 100)
+$btnForensic.BackColor = [System.Drawing.Color]::FromArgb(255, 82, 82)
+$btnForensic.ForeColor = [System.Drawing.Color]::White
+$btnForensic.FlatStyle = "Flat"
+$form.Controls.Add($btnForensic)
 
-# Quick Scan Button
-$script:QuickButton = New-Object System.Windows.Forms.Button
-$script:QuickButton.Text = "⚡ Quick Scan`r`nEssential checks only (2-3 min)"
-$script:QuickButton.Size = New-Object System.Drawing.Size(200, 70)
-$script:QuickButton.Location = New-Object System.Drawing.Point(20, 30)
-$script:QuickButton.BackColor = [System.Drawing.Color]::FromArgb(79, 195, 247)
-$script:QuickButton.ForeColor = [System.Drawing.Color]::White
-$script:QuickButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$script:QuickButton.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$script:QuickButton.Cursor = [System.Windows.Forms.Cursors]::Hand
-$script:QuickButton.Add_Click({ Start-AuditProcess -Mode "Quick" })
-$modePanel.Controls.Add($script:QuickButton)
+$btnStop = New-Object System.Windows.Forms.Button
+$btnStop.Text = "STOP"
+$btnStop.Size = New-Object System.Drawing.Size(150, 70)
+$btnStop.Location = New-Object System.Drawing.Point(730, 100)
+$btnStop.BackColor = [System.Drawing.Color]::FromArgb(220, 53, 69)
+$btnStop.ForeColor = [System.Drawing.Color]::White
+$btnStop.FlatStyle = "Flat"
+$btnStop.Enabled = $false
+$form.Controls.Add($btnStop)
 
-# Standard Scan Button
-$script:StandardButton = New-Object System.Windows.Forms.Button
-$script:StandardButton.Text = "📋 Standard Scan`r`nBalanced analysis (5-7 min)"
-$script:StandardButton.Size = New-Object System.Drawing.Size(200, 70)
-$script:StandardButton.Location = New-Object System.Drawing.Point(230, 30)
-$script:StandardButton.BackColor = [System.Drawing.Color]::FromArgb(102, 187, 106)
-$script:StandardButton.ForeColor = [System.Drawing.Color]::White
-$script:StandardButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$script:StandardButton.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$script:StandardButton.Cursor = [System.Windows.Forms.Cursors]::Hand
-$script:StandardButton.Add_Click({ Start-AuditProcess -Mode "Standard" })
-$modePanel.Controls.Add($script:StandardButton)
+# --- EVENT HANDLERS & LOGIC ---
+$script:currentJob = $null
+$AllScanButtons = @($btnQuick, $btnStandard, $btnDeep, $btnForensic)
 
-# Deep Scan Button (Recommended)
-$script:DeepButton = New-Object System.Windows.Forms.Button
-$script:DeepButton.Text = "🔍 Deep Scan (Recommended)`r`nComprehensive analysis (10-15 min)"
-$script:DeepButton.Size = New-Object System.Drawing.Size(200, 70)
-$script:DeepButton.Location = New-Object System.Drawing.Point(440, 30)
-$script:DeepButton.BackColor = [System.Drawing.Color]::FromArgb(255, 167, 38)
-$script:DeepButton.ForeColor = [System.Drawing.Color]::White
-$script:DeepButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$script:DeepButton.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$script:DeepButton.Cursor = [System.Windows.Forms.Cursors]::Hand
-$script:DeepButton.Add_Click({ Start-AuditProcess -Mode "Deep" })
-$modePanel.Controls.Add($script:DeepButton)
+function Enable-ScanButtons($enabled) {
+    foreach ($btn in $AllScanButtons) { $btn.Enabled = $enabled }
+}
 
-# Forensic Scan Button
-$script:ForensicButton = New-Object System.Windows.Forms.Button
-$script:ForensicButton.Text = "🔬 Forensic Scan`r`nFull investigation (20+ min)"
-$script:ForensicButton.Size = New-Object System.Drawing.Size(200, 70)
-$script:ForensicButton.Location = New-Object System.Drawing.Point(650, 30)
-$script:ForensicButton.BackColor = [System.Drawing.Color]::FromArgb(239, 83, 80)
-$script:ForensicButton.ForeColor = [System.Drawing.Color]::White
-$script:ForensicButton.FlatStyle = [System.Windows.Forms.FlatStyle]::Flat
-$script:ForensicButton.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$script:ForensicButton.Cursor = [System.Windows.Forms.Cursors]::Hand
-$script:ForensicButton.Add_Click({ Start-AuditProcess -Mode "Forensic" })
-$modePanel.Controls.Add($script:ForensicButton)
+# --- FIX: Replaced the single faulty line with explicit handlers for each button ---
+$btnQuick.Add_Click({ Start-Scan -Mode 'Quick' })
+$btnStandard.Add_Click({ Start-Scan -Mode 'Standard' })
+$btnDeep.Add_Click({ Start-Scan -Mode 'Deep' })
+$btnForensic.Add_Click({ Start-Scan -Mode 'Forensic' })
+$btnStop.Add_Click({ Stop-Scan })
+# --- End of Fix ---
 
-#endregion
+function Write-Log($msg, $color="Gray") {
+    if ($logBox.IsDisposed) { return }
+    $logBox.SelectionStart = $logBox.TextLength
+    $logBox.SelectionColor = [System.Drawing.Color]::$color
+    $logBox.AppendText("[$((Get-Date).ToString('HH:mm:ss'))] $msg`r`n")
+    $logBox.ScrollToCaret()
+}
 
-#region Log Panel
+function Stop-Scan {
+    if ($script:currentJob) {
+        Stop-Job $script:currentJob
+        Remove-Job $script:currentJob -Force
+        $script:currentJob = $null
+    }
+    
+    $statusLabel.Text = "Status: Scan Aborted by User"
+    $statusLabel.ForeColor = [System.Drawing.Color]::Red
+    Write-Log "!!! SCAN ABORTED BY USER !!!" "Red"
+    
+    Enable-ScanButtons $true
+    $btnStop.Enabled = $false
+    $progressBar.Visible = $false
+}
 
-$logPanel = New-Object System.Windows.Forms.GroupBox
-$logPanel.Text = " Scan Progress & Log "
-$logPanel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$logPanel.Size = New-Object System.Drawing.Size(860, 370)
-$logPanel.Location = New-Object System.Drawing.Point(20, 230)
-$logPanel.ForeColor = [System.Drawing.Color]::FromArgb(50, 50, 50)
-$form.Controls.Add($logPanel)
+function Start-Scan {
+    param([string]$Mode)
 
-$script:LogTextBox = New-Object System.Windows.Forms.RichTextBox
-$script:LogTextBox.Size = New-Object System.Drawing.Size(840, 340)
-$script:LogTextBox.Location = New-Object System.Drawing.Point(10, 20)
-$script:LogTextBox.Font = New-Object System.Drawing.Font("Consolas", 9)
-$script:LogTextBox.BackColor = [System.Drawing.Color]::FromArgb(30, 30, 30)
-$script:LogTextBox.ForeColor = [System.Drawing.Color]::FromArgb(220, 220, 220)
-$script:LogTextBox.ReadOnly = $true
-$script:LogTextBox.BorderStyle = [System.Windows.Forms.BorderStyle]::FixedSingle
-$logPanel.Controls.Add($script:LogTextBox)
+    Enable-ScanButtons $false
+    $btnStop.Enabled = $true
+    $progressBar.Visible = $true
+    $progressBar.Value = 0
+    $statusLabel.Text = "Status: Running $Mode Scan..."
+    $statusLabel.ForeColor = [System.Drawing.Color]::FromArgb(102, 126, 234)
+    $logBox.Clear()
+    
+    Write-Log "Starting $Mode Scan..." "Green"
 
-#endregion
+    $scriptPath = Join-Path $ScriptRoot "SecurityAudit.ps1"
+    
+    $script:currentJob = Start-Job -ScriptBlock {
+        param($p, $m) 
+        & $p -Mode $m *>&1
+    } -ArgumentList $scriptPath, $Mode
 
-#region Progress Bar & Status
+    $timer = New-Object System.Windows.Forms.Timer
+    $timer.Interval = 500
+    
+    $timer.Add_Tick({
+        if (-not $script:currentJob) { $timer.Stop(); return }
 
-$script:ProgressBar = New-Object System.Windows.Forms.ProgressBar
-$script:ProgressBar.Size = New-Object System.Drawing.Size(860, 25)
-$script:ProgressBar.Location = New-Object System.Drawing.Point(20, 610)
-$script:ProgressBar.Style = [System.Windows.Forms.ProgressBarStyle]::Continuous
-$script:ProgressBar.Visible = $false
-$form.Controls.Add($script:ProgressBar)
+        if ($script:currentJob.HasMoreData) {
+            $output = Receive-Job $script:currentJob
+            if ($output) {
+                foreach ($line in $output) {
+                    $lineString = $line.ToString()
+                    $color = "Gray"
+                    if ($lineString -match 'FAIL|CRITICAL') { $color = "Red" }
+                    elseif ($lineString -match 'WARN') { $color = "Yellow" }
+                    elseif ($lineString -match 'OK|PASS') { $color = "Green" }
+                    elseif ($lineString -match '===') { $color = "Cyan" }
+                    
+                    if ($form.IsHandleCreated) {
+                        $form.Invoke([Action[string,string]]{ param($m, $c) Write-Log $m $c }, $lineString, $color)
+                    }
+                }
+            }
+        }
 
-$script:StatusLabel = New-Object System.Windows.Forms.Label
-$script:StatusLabel.Text = "Status: Ready"
-$script:StatusLabel.Font = New-Object System.Drawing.Font("Segoe UI", 10, [System.Drawing.FontStyle]::Bold)
-$script:StatusLabel.ForeColor = [System.Drawing.Color]::FromArgb(102, 126, 234)
-$script:StatusLabel.AutoSize = $true
-$script:StatusLabel.Location = New-Object System.Drawing.Point(20, 642)
-$form.Controls.Add($script:StatusLabel)
+        if ($script:currentJob.State -in ('Completed', 'Failed', 'Stopped')) {
+            $timer.Stop()
+            $finalState = $script:currentJob.State
+            
+            if ($finalState -eq 'Completed') {
+                $progressBar.Value = 100
+                $statusLabel.Text = "Status: Scan Complete!"
+                $statusLabel.ForeColor = [System.Drawing.Color]::Green
+                Write-Log "Scan finished successfully. Generating report..." "Green"
+                
+                $reportDir = Get-ChildItem -Path (Join-Path $ScriptRoot "Reports") -Filter "WinSecAudit_*" -Directory | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                if ($reportDir) {
+                    $htmlReport = Join-Path $reportDir.FullName "report.html"
+                    if (Test-Path $htmlReport) { Invoke-Item $htmlReport }
+                }
 
-#endregion
+            } elseif ($finalState -eq 'Failed') {
+                $statusLabel.Text = "Status: Scan Failed!"
+                $statusLabel.ForeColor = [System.Drawing.Color]::Red
+                if ($script:currentJob.ChildJobs[0].Error.Count -gt 0) {
+                    $errorRecord = $script:currentJob.ChildJobs[0].Error[0]
+                    Write-Log "ERROR: $($errorRecord.Exception.Message)" "Red"
+                } else {
+                    Write-Log "ERROR: The scan failed for an unknown reason. Check the transcript log." "Red"
+                }
+            }
+            
+            Remove-Job $script:currentJob -Force
+            $script:currentJob = $null
+            Enable-ScanButtons $true
+            $btnStop.Enabled = $false
+        } else {
+            if ($progressBar.Value -lt 95) { $progressBar.Value += 2 }
+        }
+    })
+    $timer.Start()
+}
 
-#region Initial Welcome Message
+$form.Add_FormClosing({
+    if ($script:currentJob) {
+        Stop-Job $script:currentJob
+        Remove-Job $script:currentJob -Force
+    }
+})
 
-Write-Log "═══════════════════════════════════════════════════════" "DarkBlue"
-Write-Log "  Welcome to Windows Security Audit Framework!" "DarkBlue"
-Write-Log "═══════════════════════════════════════════════════════" "DarkBlue"
-Write-Log ""
-Write-Log "Select a scan mode to begin your security analysis:" "Green"
-Write-Log ""
-Write-Log "⚡ Quick Scan - Essential security checks (recommended for daily use)" "Gray"
-Write-Log "📋 Standard Scan - Balanced security analysis" "Gray"
-Write-Log "🔍 Deep Scan - Comprehensive analysis (recommended for thorough audits)" "Gray"
-Write-Log "🔬 Forensic Scan - Full investigation (for suspected compromises)" "Gray"
-Write-Log ""
-Write-Log "Reports will be saved to your Desktop and opened automatically." "Green"
-Write-Log ""
-
-#endregion
-
-# Show form
-$form.Add_Shown({$form.Activate()})
-[void]$form.ShowDialog()
+$form.ShowDialog()

@@ -1,8 +1,12 @@
 <#
 .SYNOPSIS
-    Report generation module for security audit results
+    Enhanced report generation module with better formatting and AI export
 .DESCRIPTION
-    Generates HTML, JSON, and CSV reports from audit findings
+    Generates HTML, JSON, and CSV reports with:
+    - Improved table formatting (no squashing)
+    - Copy-to-clipboard buttons for fixes
+    - AI-ready export
+    - Interactive fix buttons
 #>
 
 using module .\Core.psm1
@@ -75,6 +79,11 @@ function New-AuditReport {
         $reports += $csvPath
     }
     
+    # Generate AI-ready report
+    $aiPath = Join-Path $reportFolder "report_for_ai.txt"
+    Export-AIReport -Data $reportData -Path $aiPath
+    $reports += $aiPath
+    
     Write-AuditResult "Reports Generated" "$($reports.Count) file(s)" -Status Pass
     Write-Host ""
     Write-Host "Reports saved to:" -ForegroundColor Cyan
@@ -118,6 +127,98 @@ function Export-CSVReport {
     }
 }
 
+function Export-AIReport {
+    <#
+    .SYNOPSIS
+        Generates AI-friendly text report for ChatGPT/Claude
+    #>
+    param(
+        [hashtable]$Data,
+        [string]$Path
+    )
+    
+    try {
+        $sysInfo = $Data.SystemInfo
+        $riskScore = $Data.RiskScore
+        $findings = $Data.Findings
+        
+        $aiReport = @"
+==============================================================================
+WINDOWS SECURITY AUDIT REPORT - AI ANALYSIS REQUEST
+==============================================================================
+
+Generated: $($Data.GeneratedAt)
+
+SYSTEM INFORMATION:
+-------------------
+Computer Name: $($sysInfo.ComputerName)
+OS: $($sysInfo.OSName)
+Architecture: $($sysInfo.Architecture)
+RAM: $($sysInfo.TotalRAM_GB) GB
+Last Boot: $($sysInfo.LastBoot)
+
+RISK ASSESSMENT:
+----------------
+Overall Risk: $($riskScore.SeverityLabel) ($($riskScore.RiskPercent)%)
+Raw Score: $($riskScore.RawScore) / $($riskScore.MaxPossible)
+
+ISSUE SUMMARY:
+--------------
+Critical Issues (FAIL): $(($findings | Where-Object {$_.Severity -eq 0}).Count)
+Warnings (WARN): $(($findings | Where-Object {$_.Severity -eq 2}).Count)
+Passed Checks (PASS): $(($findings | Where-Object {$_.Severity -eq 1}).Count)
+Informational (INFO): $(($findings | Where-Object {$_.Severity -eq 3}).Count)
+
+==============================================================================
+DETAILED FINDINGS:
+==============================================================================
+
+"@
+        
+        foreach ($finding in $findings) {
+            $sevText = ConvertTo-SeverityText -Severity $finding.Severity
+            $aiReport += @"
+
+[$sevText] $($finding.Title)
+$("-" * 70)
+ID: $($finding.Id)
+Category: $($finding.Category)
+Value: $($finding.Value)
+Weight: $($finding.Weight)
+Timestamp: $($finding.Timestamp)
+
+Notes: $($finding.Notes)
+
+"@
+        }
+        
+        $aiReport += @"
+
+==============================================================================
+AI ASSISTANCE REQUEST:
+==============================================================================
+
+Please analyze this security audit report and provide:
+
+1. PRIORITIZATION: Rank the issues by urgency (what to fix first)
+2. ROOT CAUSE: Identify if there's a common underlying problem
+3. STEP-BY-STEP FIXES: Provide detailed fix instructions for each critical issue
+4. RISK ANALYSIS: Explain the real-world impact of each issue
+5. PREVENTION: Suggest how to prevent these issues in the future
+
+Thank you!
+
+==============================================================================
+"@
+        
+        $aiReport | Out-File -FilePath $Path -Encoding UTF8
+        Write-AuditLog "AI report saved: $Path" -Level Info
+    }
+    catch {
+        Write-AuditLog "Failed to generate AI report: $($_.Exception.Message)" -Level Error
+    }
+}
+
 function Export-HTMLReport {
     param(
         [hashtable]$Data,
@@ -154,19 +255,36 @@ function Build-HTMLReport {
     foreach ($finding in $findings) {
         $sevText = ConvertTo-SeverityText -Severity $finding.Severity
         $sevClass = $sevText
-        
+
+        $safeId = [System.Web.HttpUtility]::HtmlEncode($finding.Id)
+        $safeTitle = [System.Web.HttpUtility]::HtmlEncode($finding.Title)
         $safeValue = [System.Web.HttpUtility]::HtmlEncode($finding.Value)
         $safeNotes = [System.Web.HttpUtility]::HtmlEncode($finding.Notes)
         
+        # Extract quick fix command if present in notes
+        $quickFixButton = ""
+        if ($finding.Notes -match "Run:\s*(.+?)(\r|\n|$)") {
+            $command = $matches[1].Trim()
+            $safeCommand = [System.Web.HttpUtility]::HtmlAttributeEncode($command)
+            $quickFixButton = @"
+<button class='copy-btn' onclick='copyToClipboard("$safeCommand")' title='Copy command'>
+    📋 Copy Fix
+</button>
+"@
+        }
+        
         $findingsRows += @"
 <tr>
-    <td>$($finding.Id)</td>
-    <td>$($finding.Title)</td>
+    <td>$safeId</td>
+    <td><strong>$safeTitle</strong></td>
     <td>$safeValue</td>
-    <td><span class='$sevClass'>$sevText</span></td>
-    <td>$($finding.Weight)</td>
+    <td><span class='severity-badge $sevClass'>$sevText</span></td>
+    <td class='text-center'>$($finding.Weight)</td>
     <td>$($finding.Category)</td>
-    <td>$safeNotes</td>
+    <td class='notes-cell'>
+        $safeNotes
+        $quickFixButton
+    </td>
 </tr>
 
 "@
@@ -195,7 +313,7 @@ function Build-HTMLReport {
         }
         
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             background: white;
             border-radius: 10px;
@@ -223,6 +341,37 @@ function Build-HTMLReport {
         
         .content {
             padding: 40px;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            justify-content: center;
+        }
+        
+        .action-btn {
+            padding: 15px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            color: white;
+        }
+        
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+        
+        .btn-ai {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        
+        .btn-copy {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
         
         .info-grid {
@@ -389,6 +538,24 @@ function Build-HTMLReport {
             text-transform: uppercase;
             letter-spacing: 1px;
         }
+        
+        .toast {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #28a745;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: opacity 0.3s;
+            z-index: 1000;
+        }
+        
+        .toast.show {
+            opacity: 1;
+        }
     </style>
 </head>
 <body>
@@ -399,6 +566,15 @@ function Build-HTMLReport {
         </div>
         
         <div class="content">
+            <div class="action-buttons">
+                <button class="action-btn btn-copy" onclick="copyAllFindings()">
+                    📋 Copy Full Report
+                </button>
+                <button class="action-btn btn-ai" onclick="openAIAssistant()">
+                    🤖 Get AI Help
+                </button>
+            </div>
+            
             <div class="info-grid">
                 <div class="info-card">
                     <h3>Computer Name</h3>
@@ -455,7 +631,7 @@ function Build-HTMLReport {
                         <th>Severity</th>
                         <th>Weight</th>
                         <th>Category</th>
-                        <th>Notes</th>
+                        <th>Notes & Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -465,10 +641,45 @@ function Build-HTMLReport {
         </div>
         
         <div class="footer">
-            <p>Windows Security Audit Framework - Built with PowerShell</p>
-            <p>Open Source Project - Licensed for Security Research</p>
+            <p><strong>Windows Security Audit Framework v5.1</strong></p>
+            <p>Built by Sandiso Mazibuko | Open Source Project</p>
         </div>
     </div>
+    
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(function() {
+                showToast('✅ Command copied! Paste in PowerShell (Admin)');
+            }).catch(function(err) {
+                showToast('❌ Failed to copy: ' + err);
+            });
+        }
+        
+        function copyAllFindings() {
+            const reportText = document.querySelector('table').innerText;
+            navigator.clipboard.writeText(reportText).then(function() {
+                showToast('✅ Full report copied to clipboard!');
+            }).catch(function(err) {
+                showToast('❌ Failed to copy: ' + err);
+            });
+        }
+        
+        function openAIAssistant() {
+            const reportPath = window.location.pathname.replace('report.html', 'report_for_ai.txt');
+            showToast('📄 Open report_for_ai.txt in the same folder and paste into ChatGPT/Claude!');
+        }
+        
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(function() {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+    </script>
 </body>
 </html>
 "@

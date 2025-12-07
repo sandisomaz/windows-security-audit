@@ -1,199 +1,111 @@
 <#
 .SYNOPSIS
-    Network connection and configuration analysis
+    Network analysis module (ENHANCED)
 .DESCRIPTION
-    Checks:
-    - Active external network connections
-    - DNS configuration
-    - Listening ports
-    - Network adapters
+    Audits network configurations, active connections, and for signs of
+    DNS hijacking with detailed fix recommendations.
 #>
 
 using module .\Core.psm1
 
 function Invoke-NetworkAudit {
-    <#
-    .SYNOPSIS
-        Performs network security analysis
-    .PARAMETER Config
-        Configuration object from Config.psd1
-    #>
     param(
         [Parameter(Mandatory)]
         [hashtable]$Config
     )
-    
-    Write-AuditHeader "Network Security Analysis"
-    
-    # === External Connections ===
-    Test-ExternalConnections -Config $Config
-    
-    # === Listening Ports ===
-    Test-ListeningPorts
-    
-    # === DNS Configuration ===
-    Test-DNSConfiguration
-    
-    # === Network Adapters ===
-    Test-NetworkAdapters
-}
 
-function Test-ExternalConnections {
-    param([hashtable]$Config)
-    
-    Write-Host "Analyzing external network connections..." -ForegroundColor Cyan
-    
-    $connections = Get-NetTCPConnection -State Established -ErrorAction SilentlyContinue |
-        Where-Object {
-            $_.RemoteAddress -and 
-            ($_.RemoteAddress -notmatch "^127\.|^10\.|^172\.1[6-9]|^172\.2[0-9]|^172\.3[0-1]|^192\.168") -and
-            $_.RemoteAddress -ne "::1"
-        } |
-        Select-Object -First $Config.Thresholds.MaxNetworkConnections
-    
-    if ($connections) {
-        Write-AuditResult "External Connections" "Found $($connections.Count) established connection(s)" -Status Info
-        
-        $connectionDetails = @()
-        
-        foreach ($conn in $connections) {
-            $process = Invoke-SafeCommand {
-                (Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue).Name
-            }
-            
-            $detail = "$($conn.LocalAddress):$($conn.LocalPort) → $($conn.RemoteAddress):$($conn.RemotePort) [$process]"
-            Write-Host "  $detail" -ForegroundColor Gray
-            
-            $connectionDetails += $detail
-        }
-        
-        Add-AuditFinding `
-            -Id "Net_ExtConns" `
-            -Title "External Network Connections" `
-            -Value "Found $($connections.Count) connection(s)" `
-            -Severity 3 `
-            -Notes "Active connections: $($connectionDetails -join '; ')" `
-            -Category "Network"
-    }
-    else {
-        Write-AuditResult "External Connections" "None found" -Status Pass
-        
-        Add-AuditFinding `
-            -Id "Net_ExtConns" `
-            -Title "External Network Connections" `
-            -Value "None" `
-            -Severity 1 `
-            -Category "Network"
-    }
+    Write-AuditHeader "Network Configuration & Connection Analysis"
+
+    Test-ListeningPorts
+    Test-HostsFile
 }
 
 function Test-ListeningPorts {
-    Write-Host "Checking listening ports..." -ForegroundColor Cyan
-    
-    $listening = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue |
-        Select-Object -First 20
-    
-    if ($listening) {
-        Write-AuditResult "Listening Ports" "Found $($listening.Count) listening port(s)" -Status Info
-        
-        $suspiciousPorts = @()
-        
-        foreach ($port in $listening) {
-            $process = Invoke-SafeCommand {
-                (Get-Process -Id $port.OwningProcess -ErrorAction SilentlyContinue).Name
+    Write-Host "Analyzing listening ports for suspicious services..." -ForegroundColor Cyan
+
+    $listening = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
+    if (-not $listening) {
+        Write-AuditResult "Listening Ports" "Could not query" -Status Info
+        return
+    }
+
+    # Common malware/RAT ports
+    $suspiciousPorts = @(1337, 31337, 4444, 5555, 6666, 8888, 9999, 12345)
+    $foundSuspicious = @()
+
+    foreach ($conn in $listening) {
+        if ($conn.LocalPort -in $suspiciousPorts) {
+            $process = Invoke-SafeCommand { Get-Process -Id $conn.OwningProcess -ErrorAction SilentlyContinue }
+            $processName = if ($process) { $process.ProcessName } else { "Unknown" }
+            $foundSuspicious += [PSCustomObject]@{
+                Port    = $conn.LocalPort
+                Process = $processName
+                PID     = $conn.OwningProcess
             }
-            
-            Write-Host "  Port $($port.LocalPort) - $process" -ForegroundColor Gray
-            
-            # Flag common malware ports or uncommon services
-            if ($port.LocalPort -in @(4444, 31337, 12345, 6667, 6666)) {
-                $suspiciousPorts += "Port $($port.LocalPort) by $process"
-            }
-        }
-        
-        if ($suspiciousPorts.Count -gt 0) {
-            Add-AuditFinding `
-                -Id "Net_SusPorts" `
-                -Title "Suspicious Listening Ports" `
-                -Value "Found $($suspiciousPorts.Count) suspicious port(s)" `
-                -Severity 2 `
-                -Notes "Ports: $($suspiciousPorts -join ', '). Verify these are legitimate services." `
-                -Category "Network"
-        }
-        else {
-            Add-AuditFinding `
-                -Id "Net_Listening" `
-                -Title "Listening Ports" `
-                -Value "$($listening.Count) port(s) listening" `
-                -Severity 3 `
-                -Category "Network"
         }
     }
+
+    if ($foundSuspicious) {
+        Write-AuditResult "Suspicious Listening Ports" "DETECTED: $($foundSuspicious.Count) port(s)" -Status Fail
+        $details = $foundSuspicious | ForEach-Object { "Port $($_.Port) listened on by '$($_.Process)' (PID: $($_.PID))" }
+
+        $notes = Format-FixRecommendation `
+            -Problem "The system is listening for connections on ports commonly used by Remote Access Trojans (RATs) and other malware." `
+            -ManualSteps @(
+                "Investigate the following suspicious listeners:",
+                ($details -join "`n"),
+                "1. Use Task Manager to find the process by its PID.",
+                "2. Right-click the process and select 'Open file location'.",
+                "3. If the file is in a temporary or user directory, it is highly suspicious.",
+                "4. End the process and delete the associated file.",
+                "5. Run a full antivirus scan."
+            )
+        Add-AuditFinding -Id "Net_SuspiciousListener" -Title "Suspicious Listening Port" -Value "$($foundSuspicious.Count) found" -Severity 0 -Weight 20 -Notes $notes -Category "Network"
+    }
     else {
-        Write-AuditResult "Listening Ports" "None found" -Status Pass
+        Write-AuditResult "Suspicious Listening Ports" "None detected" -Status Pass
+        Add-AuditFinding -Id "Net_ListenersOK" -Title "Listening Ports" -Value "No common malware ports found" -Severity 1 -Category "Network"
     }
 }
 
-function Test-DNSConfiguration {
-    Write-Host "Checking DNS configuration..." -ForegroundColor Cyan
-    
-    $dnsServers = Get-DnsClientServerAddress -ErrorAction SilentlyContinue
-    
-    if ($dnsServers) {
-        $dnsInfo = @()
-        
-        foreach ($adapter in $dnsServers) {
-            if ($adapter.ServerAddresses) {
-                $servers = $adapter.ServerAddresses -join ", "
-                Write-Host "  $($adapter.InterfaceAlias): $servers" -ForegroundColor Gray
-                $dnsInfo += "$($adapter.InterfaceAlias): $servers"
-            }
-        }
-        
-        Add-AuditFinding `
-            -Id "Net_DNS" `
-            -Title "DNS Configuration" `
-            -Value "Configured" `
-            -Severity 3 `
-            -Notes "DNS Servers: $($dnsInfo -join '; ')" `
-            -Category "Network"
-        
-        Write-AuditResult "DNS Servers" "Configured" -Status Pass
-    }
-    else {
-        Write-AuditResult "DNS Servers" "Query failed" -Status Warn
-        
-        Add-AuditFinding `
-            -Id "Net_DNS" `
-            -Title "DNS Configuration" `
-            -Value "Unknown" `
-            -Severity 2 `
-            -Category "Network"
-    }
-}
+function Test-HostsFile {
+    Write-Host "Checking HOSTS file for hijacking..." -ForegroundColor Cyan
 
-function Test-NetworkAdapters {
-    Write-Host "Checking network adapters..." -ForegroundColor Cyan
-    
-    $adapters = Get-NetAdapter -ErrorAction SilentlyContinue |
-        Where-Object { $_.Status -eq 'Up' }
-    
-    if ($adapters) {
-        Write-AuditResult "Active Adapters" "$($adapters.Count) adapter(s)" -Status Info
-        
-        foreach ($adapter in $adapters) {
-            Write-Host "  - $($adapter.Name) [$($adapter.InterfaceDescription)]" -ForegroundColor Gray
-        }
-        
-        Add-AuditFinding `
-            -Id "Net_Adapters" `
-            -Title "Network Adapters" `
-            -Value "$($adapters.Count) active adapter(s)" `
-            -Severity 3 `
-            -Category "Network"
+    $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
+    if (-not (Test-Path $hostsPath)) {
+        Write-AuditResult "HOSTS File" "Not found" -Status Warn
+        return
+    }
+
+    # Get entries that are not comments or localhost
+    $entries = Get-Content $hostsPath | Where-Object { $_ -match '^\s*[^#\s]' -and $_ -notmatch 'localhost' }
+
+    if ($entries) {
+        Write-AuditResult "HOSTS File" "Found $($entries.Count) active entries (potential hijacking)" -Status Warn
+
+        $details = ($entries | Select-Object -First 10) -join "`n"
+
+        $notes = Format-FixRecommendation `
+            -Problem "The HOSTS file contains active entries. Malware uses this file to redirect legitimate websites (like your bank) to malicious servers." `
+            -QuickFix "Set-Content -Path '$hostsPath' -Value '# Default HOSTS file'" `
+            -ManualSteps @(
+                "The following entries were found:",
+                $details,
+                "1. Open Notepad as an Administrator.",
+                "2. Go to File -> Open and navigate to '$hostsPath'.",
+                "3. Change the file type filter from 'Text Documents' to 'All Files'.",
+                "4. Open the 'hosts' file.",
+                "5. Review each line. If you do not recognize an entry, put a '#' at the beginning of the line to disable it.",
+                "6. Save the file."
+            ) `
+            -MoreInfo "https://www.howtogeek.com/howto/27350/beginner-geek-how-to-edit-your-hosts-file/" `
+            -IsSafe $false
+
+        Add-AuditFinding -Id "Net_HostsFileModified" -Title "HOSTS File Hijacking" -Value "$($entries.Count) active entries found" -Severity 2 -Weight 15 -Notes $notes -Category "Network"
     }
     else {
-        Write-AuditResult "Active Adapters" "None found" -Status Warn
+        Write-AuditResult "HOSTS File" "Clean" -Status Pass
+        Add-AuditFinding -Id "Net_HostsFileClean" -Title "HOSTS File" -Value "Clean" -Severity 1 -Category "Network"
     }
 }
 

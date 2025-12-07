@@ -25,9 +25,6 @@ function Invoke-ForensicChecks {
     
     Write-AuditHeader "Forensic Analysis & Artifacts"
     
-    # === HOSTS File ===
-    Test-HostsFile
-    
     # === Browser Extensions ===
     Test-BrowserExtensions
     
@@ -36,62 +33,6 @@ function Invoke-ForensicChecks {
     
     # === Recent Executables ===
     Test-RecentExecutables -Config $Config
-}
-
-function Test-HostsFile {
-    Write-Host "Analyzing HOSTS file..." -ForegroundColor Cyan
-    
-    $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
-    
-    try {
-        $content = Get-Content $hostsPath -ErrorAction Stop
-        
-        # Filter out comments and blank lines
-        $activeLines = $content | Where-Object {
-            $_ -notmatch "^\s*#" -and $_ -match "\w"
-        }
-        
-        # Filter out default localhost entries
-        $customEntries = $activeLines | Where-Object {
-            $_ -notmatch '127\.0\.0\.1\s+localhost' -and $_ -notmatch '::1\s+localhost'
-        }
-        
-        if ($customEntries) {
-            Write-AuditResult "HOSTS File" "MODIFIED ($($customEntries.Count) custom entry/ies)" -Status Warn
-            
-            foreach ($entry in $customEntries) {
-                Write-Host "  $entry" -ForegroundColor Yellow
-            }
-            
-            Add-AuditFinding `
-                -Id "Forensic_HOSTS" `
-                -Title "HOSTS File Modifications" `
-                -Value "Found $($customEntries.Count) custom entry/ies" `
-                -Severity 2 `
-                -Notes "Custom entries found: $($customEntries -join '; '). This may indicate cracked software or malware network blocking." `
-                -Category "Forensics"
-        }
-        else {
-            Write-AuditResult "HOSTS File" "Clean (default state)" -Status Pass
-            
-            Add-AuditFinding `
-                -Id "Forensic_HOSTS" `
-                -Title "HOSTS File" `
-                -Value "Clean" `
-                -Severity 1 `
-                -Category "Forensics"
-        }
-    }
-    catch {
-        Write-AuditResult "HOSTS File" "Read failed" -Status Warn
-        
-        Add-AuditFinding `
-            -Id "Forensic_HOSTS" `
-            -Title "HOSTS File" `
-            -Value "Read failed" `
-            -Severity 2 `
-            -Category "Forensics"
-    }
 }
 
 function Test-BrowserExtensions {
@@ -110,12 +51,20 @@ function Test-BrowserExtensions {
                 $extensionList += $ext.Name
             }
             
+            $notes = Format-FixRecommendation `
+                -Problem "A review of installed browser extensions is recommended. Malicious extensions can steal data and monitor activity." `
+                -ManualSteps @(
+                    "Open Chrome and navigate to 'chrome://extensions'.",
+                    "Review each extension. If you don't recognize it or no longer use it, remove it.",
+                    "Pay close attention to extensions with powerful permissions."
+                )
+
             Add-AuditFinding `
                 -Id "Forensic_Chrome" `
                 -Title "Chrome Extensions" `
                 -Value "$($chromeExts.Count) extension(s) installed" `
                 -Severity 3 `
-                -Notes "Review extensions in Chrome. Remove any suspicious or unused extensions." `
+                -Notes $notes `
                 -Category "Forensics"
         }
     }
@@ -128,12 +77,19 @@ function Test-BrowserExtensions {
         if ($edgeExts) {
             Write-AuditResult "Edge Extensions" "$($edgeExts.Count) extension(s)" -Status Info
             
+            $notes = Format-FixRecommendation `
+                -Problem "A review of installed browser extensions is recommended." `
+                -ManualSteps @(
+                    "Open Edge and navigate to 'edge://extensions'.",
+                    "Review and remove any extensions that are unfamiliar or no longer needed."
+                )
+
             Add-AuditFinding `
                 -Id "Forensic_Edge" `
                 -Title "Edge Extensions" `
                 -Value "$($edgeExts.Count) extension(s) installed" `
                 -Severity 3 `
-                -Notes "Review extensions in Edge. Remove any suspicious or unused extensions." `
+                -Notes $notes `
                 -Category "Forensics"
         }
     }
@@ -185,12 +141,21 @@ function Test-PUPs {
     if ($foundPUPs.Count -gt 0) {
         Write-AuditResult "PUP Scan" "Found $($foundPUPs.Count) potential PUP(s)" -Status Warn
         
+        $notes = Format-FixRecommendation `
+            -Problem "Potentially Unwanted Programs (PUPs) like 'PC Cleaners', 'Optimizers', or 'Driver Updaters' were detected. These often cause more harm than good and can be a security risk." `
+            -ManualSteps @(
+                "Go to 'Add or remove programs' in Windows Settings.",
+                "Find and uninstall the following applications:",
+                (($foundPUPs | Select-Object -Unique) -join "`n"),
+                "Be careful during uninstallation to decline any additional offers."
+            )
+
         Add-AuditFinding `
             -Id "Forensic_PUPs" `
             -Title "Potentially Unwanted Programs" `
             -Value "Found $($foundPUPs.Count) PUP(s)" `
             -Severity 2 `
-            -Notes "Detected: $($foundPUPs -join ', '). Consider uninstalling these programs." `
+            -Notes $notes `
             -Category "Forensics"
     }
     else {
@@ -249,14 +214,23 @@ function Test-RecentExecutables {
     if ($recentFiles.Count -gt 0) {
         Write-AuditResult "Recent Executables" "Found $($recentFiles.Count) recent file(s)" -Status Warn
         
-        $hashList = $recentFiles | ForEach-Object { "$($_.Name): $($_.Hash)" }
+        $fileDetails = $recentFiles | ForEach-Object { "- $($_.Name) at $($_.Path)" }
+        $notes = Format-FixRecommendation `
+            -Problem "Found executable files that were recently created or modified in user directories. This is a common tactic for malware droppers." `
+            -ManualSteps @(
+                "Review the following files:",
+                ($fileDetails -join "`n"),
+                "1. If you do not recognize these files, do not run them.",
+                "2. Get the file hash and submit it to VirusTotal.com to check for malware.",
+                "3. If malicious, delete the file and run a full antivirus scan."
+            )
         
         Add-AuditFinding `
             -Id "Forensic_RecentExe" `
             -Title "Recently Modified Executables" `
             -Value "Found $($recentFiles.Count) file(s)" `
             -Severity 2 `
-            -Notes "Files modified in last $($Config.Thresholds.RecentExecutablesAge) days. Hashes: $($hashList -join '; ')" `
+            -Notes $notes `
             -Category "Forensics"
     }
     else {
