@@ -1,20 +1,13 @@
 <#
 .SYNOPSIS
-    Crypto miner and resource hijacking detection module
+    Crypto miner detection module (FIXED: DateTime bug)
 .DESCRIPTION
-    Detects cryptocurrency miners, botnet clients, and resource hijacking malware
-    Includes pattern matching for known miners and behavioral analysis
+    Detects cryptocurrency miners with proper error handling for processes without StartTime
 #>
 
 using module .\Core.psm1
 
 function Invoke-CryptoMinerDetection {
-    <#
-    .SYNOPSIS
-        Detects cryptocurrency mining malware and resource hijacking
-    .PARAMETER Config
-        Configuration object from Config.psd1
-    #>
     param(
         [Parameter(Mandatory)]
         [hashtable]$Config
@@ -24,23 +17,19 @@ function Invoke-CryptoMinerDetection {
     
     # Known miner signatures
     $minerSignatures = @{
-        # Popular mining software
         Executables = @('xmrig.exe', 'cgminer.exe', 'claymore.exe', 'ethminer.exe', 
                        'nicehash.exe', 'minergate.exe', 'cpuminer.exe', 'bfgminer.exe',
                        'phoenixminer.exe', 'teamredminer.exe', 'lolminer.exe',
                        'trex.exe', 'nbminer.exe', 'gminer.exe')
         
-        # Common mining pool domains/IPs
         MiningPools = @('xmr-pool', 'nanopool', 'ethermine', 'f2pool', 'antpool',
                        'nicehash', 'minergate', 'monero', 'pool.supportxmr',
                        'monerohash', 'hashvault', 'minexmr')
         
-        # Suspicious command line arguments
         CommandLinePatterns = @('--algo', '--pool', '--user', '--pass', 
                                'stratum+tcp', 'stratum+ssl', '--donate-level',
                                '--cpu-priority', '--threads', 'cryptonight')
         
-        # Known malicious miner file sizes (in MB, approximate)
         SuspiciousFileSizes = @(
             @{Min=5.0; Max=6.0; Name="XMRig-like"},
             @{Min=3.5; Max=4.5; Name="CGMiner-like"},
@@ -48,29 +37,18 @@ function Invoke-CryptoMinerDetection {
         )
     }
     
-    # Detect high CPU usage processes
     Test-HighCPUProcesses
-    
-    # Check for known miner executables
     Test-KnownMinerExecutables -Signatures $minerSignatures
-    
-    # Check network connections to mining pools
     Test-MiningPoolConnections -Signatures $minerSignatures
-    
-    # Check for suspicious AppData executables
     Test-SuspiciousAppDataExecutables -Signatures $minerSignatures
-    
-    # Check GPU usage (if available)
     Test-GPUUsage
-    
-    # Check for hidden mining processes
     Test-HiddenMiningProcesses -Signatures $minerSignatures
 }
 
 function Test-HighCPUProcesses {
     Write-Host "Analyzing CPU usage patterns..." -ForegroundColor Cyan
     
-    $cpuThreshold = 30 # Sustained CPU usage above 30% is suspicious
+    $cpuThreshold = 30
     $processes = Get-Process | Where-Object { $_.CPU -gt $cpuThreshold } | 
                  Sort-Object CPU -Descending | 
                  Select-Object -First 10
@@ -79,18 +57,29 @@ function Test-HighCPUProcesses {
         $suspiciousHighCPU = @()
         
         foreach ($proc in $processes) {
-            # Safely calculate average CPU percentage, checking if StartTime exists
-            if ($proc.StartTime) {
-                $cpuPercent = [math]::Round(($proc.CPU / (Get-Date - $proc.StartTime).TotalSeconds), 2)
-                
-                if ($cpuPercent -gt 50) {
-                    $suspiciousHighCPU += [PSCustomObject]@{
-                        Name = $proc.ProcessName
-                        PID = $proc.Id
-                        CPU_Percent = $cpuPercent
-                        Path = $proc.Path
-                        StartTime = $proc.StartTime
+            # FIX: Properly check if StartTime exists and is valid
+            if ($proc.StartTime -and $proc.StartTime -is [DateTime]) {
+                try {
+                    $runTime = (Get-Date) - $proc.StartTime
+                    
+                    # Only calculate CPU% if process has been running more than 1 second
+                    if ($runTime.TotalSeconds -gt 1) {
+                        $cpuPercent = [math]::Round(($proc.CPU / $runTime.TotalSeconds), 2)
+                        
+                        if ($cpuPercent -gt 50) {
+                            $suspiciousHighCPU += [PSCustomObject]@{
+                                Name = $proc.ProcessName
+                                PID = $proc.Id
+                                CPU_Percent = $cpuPercent
+                                Path = $proc.Path
+                                StartTime = $proc.StartTime
+                            }
+                        }
                     }
+                }
+                catch {
+                    # Silently skip processes where calculation fails
+                    Write-AuditLog "Could not calculate CPU for $($proc.ProcessName): $($_.Exception.Message)" -Level Debug
                 }
             }
         }
@@ -123,9 +112,18 @@ function Test-HighCPUProcesses {
                 -Weight 15 `
                 -Notes $notes `
                 -Category "CryptoMiner"
+        } else {
+            Write-AuditResult "High CPU Usage" "No abnormal CPU usage detected" -Status Pass
+            
+            Add-AuditFinding `
+                -Id "Miner_CPU_Clean" `
+                -Title "CPU Usage Analysis" `
+                -Value "Normal" `
+                -Severity 1 `
+                -Category "CryptoMiner"
         }
     } else {
-        Write-AuditResult "High CPU Usage" "No abnormal CPU usage detected" -Status Pass
+        Write-AuditResult "High CPU Usage" "No high CPU processes found" -Status Pass
         
         Add-AuditFinding `
             -Id "Miner_CPU_Clean" `
@@ -163,8 +161,6 @@ function Test-KnownMinerExecutables {
     
     if ($foundMiners.Count -gt 0) {
         Write-AuditResult "Known Mining Software" "DETECTED: $($foundMiners.Count) known miner(s)" -Status Fail
-        
-        $minerDetails = $foundMiners | ConvertTo-Json -Compress
         
         $notes = Format-FixRecommendation `
             -Problem "CRITICAL: Known cryptocurrency mining software detected running on your system." `
@@ -214,7 +210,6 @@ function Test-MiningPoolConnections {
         $remoteAddr = $conn.RemoteAddress
         $remotePort = $conn.RemotePort
         
-        # Mining pools commonly use ports: 3333, 4444, 5555, 7777, 8888, 9999, 14433, 14444
         $miningPorts = @(3333, 4444, 5555, 7777, 8888, 9999, 14433, 14444)
         
         if ($remotePort -in $miningPorts) {
@@ -230,9 +225,6 @@ function Test-MiningPoolConnections {
                 RemotePort = $remotePort
             }
         }
-        
-        # Check DNS resolution against known pool domains (simplified check)
-        # Note: Full DNS reverse lookup would be more comprehensive but slower
     }
     
     if ($suspiciousConnections.Count -gt 0) {
@@ -304,7 +296,6 @@ function Test-SuspiciousAppDataExecutables {
             foreach ($file in $files) {
                 $fileSizeMB = [math]::Round($file.Length / 1MB, 1)
                 
-                # Check against known miner file sizes
                 foreach ($sizePattern in $Signatures.SuspiciousFileSizes) {
                     if ($foundPaths.Contains($file.FullName)) { continue }
 
@@ -321,7 +312,6 @@ function Test-SuspiciousAppDataExecutables {
                     }
                 }
                 
-                # Check for common miner names in path
                 if ($file.DirectoryName -match 'updates?|service|system|windows' -and 
                     $file.Name -notmatch 'microsoft|windows|intel|nvidia|amd' -and
                     -not $foundPaths.Contains($file.FullName)) {
@@ -386,7 +376,6 @@ function Test-SuspiciousAppDataExecutables {
 function Test-GPUUsage {
     Write-Host "Checking GPU usage (if available)..." -ForegroundColor Cyan
     
-    # Try to detect GPU usage via nvidia-smi or AMD equivalent
     $nvidiaPath = "C:\Program Files\NVIDIA Corporation\NVSMI\nvidia-smi.exe"
     
     if (Test-Path $nvidiaPath) {
@@ -436,7 +425,6 @@ function Test-HiddenMiningProcesses {
     
     Write-Host "Searching for hidden/renamed mining processes..." -ForegroundColor Cyan
     
-    # Get all processes with command line arguments
     $processes = Get-CimInstance Win32_Process | 
                  Where-Object { $_.CommandLine } |
                  Select-Object ProcessId, Name, CommandLine, ExecutablePath
@@ -446,7 +434,6 @@ function Test-HiddenMiningProcesses {
     foreach ($proc in $processes) {
         $cmdLine = $proc.CommandLine.ToLower()
         
-        # Check for mining-related command line arguments
         foreach ($pattern in $Signatures.CommandLinePatterns) {
             if ($cmdLine -match $pattern.ToLower()) {
                 $hiddenMiners += [PSCustomObject]@{
@@ -463,8 +450,6 @@ function Test-HiddenMiningProcesses {
     
     if ($hiddenMiners.Count -gt 0) {
         Write-AuditResult "Hidden Mining Processes" "DETECTED: $($hiddenMiners.Count) process(es) with mining arguments" -Status Fail
-        
-        $minerJson = $hiddenMiners | ConvertTo-Json -Compress
         
         $notes = Format-FixRecommendation `
             -Problem "Processes with cryptocurrency mining command-line arguments detected. These may be renamed or disguised miners." `
