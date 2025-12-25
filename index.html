@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+    <title>Security Audit Scan Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+    <link href="https://fonts.googleapis.com" rel="preconnect"/>
+    <link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <script>
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        primary: "#10b981", 
+                        danger: "#ef4444", 
+                        warning: "#f59e0b", 
+                        "background-light": "#fdfbf7",
+                        "background-dark": "#0f172a",
+                        "surface-light": "#ffffff",
+                        "surface-dark": "#1e293b",
+                    },
+                    fontFamily: {
+                        display: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"],
+                    },
+                },
+            },
+        };
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 3px; }
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #475569; }
+        .log-entry { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-black h-screen flex items-center justify-center p-4 font-display transition-colors duration-200">
+<div class="w-full max-w-7xl h-[90vh] bg-background-light dark:bg-background-dark shadow-2xl rounded-xl flex flex-col overflow-hidden border border-gray-200 dark:border-gray-800 relative transition-colors duration-200">
+    
+    <!-- Header -->
+    <header class="px-8 py-6 bg-surface-light dark:bg-surface-dark border-b border-gray-200 dark:border-gray-800 flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-5">
+            <div class="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-700 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                <span class="material-symbols-outlined text-3xl">radar</span>
+            </div>
+            <div>
+                <h1 class="text-2xl font-bold text-gray-900 dark:text-white leading-tight">Security Scan Dashboard</h1>
+                <div class="flex items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    <span class="flex items-center gap-1"><span class="material-symbols-outlined text-base">computer</span> LOCALHOST</span>
+                    <span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
+                    <span id="connectionStatus" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded text-xs font-medium border border-blue-100 dark:border-blue-800">Connected</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- Sidebar -->
+        <nav class="w-64 flex-shrink-0 bg-surface-light dark:bg-surface-dark border-r border-gray-200 dark:border-gray-800 flex flex-col hidden lg:flex">
+            <div class="p-6">
+                <h2 class="text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-6">Main Menu</h2>
+                <ul class="space-y-1">
+                    <li><a class="flex items-center gap-3 px-3 py-2 text-sm font-medium bg-primary/10 text-primary rounded-lg" href="#"><span class="material-symbols-outlined text-[20px]">dashboard</span>Scan Dashboard</a></li>
+                </ul>
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col overflow-hidden bg-gray-50/50 dark:bg-[#111827] relative">
+            <div class="p-8 pb-4">
+                <!-- Action Buttons -->
+                <div class="grid grid-cols-2 md:grid-cols-5 gap-4">
+                    <button onclick="startScan('Quick')" class="flex flex-col items-center justify-center gap-3 p-4 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-800 rounded-xl hover:border-primary/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group h-32">
+                        <div class="w-10 h-10 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform"><span class="material-symbols-outlined text-2xl">bolt</span></div>
+                        <div class="text-center"><div class="font-semibold text-gray-900 dark:text-white text-sm">Quick Scan</div><div class="text-[10px] text-gray-500 mt-1">Memory & Critical</div></div>
+                    </button>
+                    <button onclick="startScan('Standard')" class="flex flex-col items-center justify-center gap-3 p-4 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-800 rounded-xl hover:border-primary/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group h-32">
+                        <div class="w-10 h-10 rounded-lg bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform"><span class="material-symbols-outlined text-2xl">search</span></div>
+                        <div class="text-center"><div class="font-semibold text-gray-900 dark:text-white text-sm">Standard Scan</div><div class="text-[10px] text-gray-500 mt-1">Full System</div></div>
+                    </button>
+                    <button onclick="startScan('Deep')" class="flex flex-col items-center justify-center gap-3 p-4 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-800 rounded-xl hover:border-primary/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group h-32">
+                        <div class="w-10 h-10 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 flex items-center justify-center group-hover:scale-110 transition-transform"><span class="material-symbols-outlined text-2xl">layers</span></div>
+                        <div class="text-center"><div class="font-semibold text-gray-900 dark:text-white text-sm">Deep Scan</div><div class="text-[10px] text-gray-500 mt-1">Heuristics & Rootkits</div></div>
+                    </button>
+                    <button onclick="startScan('Forensic')" class="flex flex-col items-center justify-center gap-3 p-4 bg-white dark:bg-surface-dark border border-gray-200 dark:border-gray-800 rounded-xl hover:border-primary/50 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group h-32">
+                        <div class="w-10 h-10 rounded-lg bg-purple-50 dark:bg-purple-900/20 text-purple-600 dark:text-purple-400 flex items-center justify-center group-hover:scale-110 transition-transform"><span class="material-symbols-outlined text-2xl">science</span></div>
+                        <div class="text-center"><div class="font-semibold text-gray-900 dark:text-white text-sm">Forensic</div><div class="text-[10px] text-gray-500 mt-1">Timeline & Artifacts</div></div>
+                    </button>
+                    <button onclick="stopScan()" class="flex flex-col items-center justify-center gap-3 p-4 bg-red-50 dark:bg-red-900/10 border-2 border-red-100 dark:border-red-900/30 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/20 hover:border-red-300 transition-all group h-32">
+                        <div class="w-10 h-10 rounded-lg bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm"><span class="material-symbols-outlined text-2xl">stop_circle</span></div>
+                        <div class="text-center"><div class="font-bold text-red-700 dark:text-red-400 text-sm">STOP</div><div class="text-[10px] text-red-500 mt-1">Abort Operation</div></div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Status Bar -->
+            <div class="px-8 mb-4">
+                <div class="bg-surface-light dark:bg-surface-dark border border-gray-200 dark:border-gray-800 rounded-lg p-4 shadow-sm flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div class="relative flex items-center justify-center w-8 h-8">
+                            <div id="statusIndicator" class="w-3 h-3 bg-gray-400 rounded-full z-10 transition-colors"></div>
+                            <div id="statusPulse" class="absolute inset-0 bg-gray-400 rounded-full opacity-20 transition-colors"></div>
+                        </div>
+                        <div>
+                            <div id="statusText" class="text-sm font-semibold text-gray-900 dark:text-white">System Ready</div>
+                            <div id="statusSubtext" class="text-xs text-gray-500">Waiting for user command.</div>
+                        </div>
+                    </div>
+                    <!-- NEW REPORT BUTTON: Hidden by default -->
+                    <button id="btnOpenReport" onclick="openReport()" class="hidden flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-md">
+                        <span class="material-symbols-outlined text-lg">description</span>
+                        Open Full Report
+                    </button>
+                </div>
+            </div>
+
+            <!-- Logs -->
+            <div class="flex-1 px-8 pb-8 overflow-hidden min-h-0">
+                <div class="h-full flex flex-col bg-surface-light dark:bg-surface-dark border border-gray-200 dark:border-gray-800 rounded-xl shadow-sm overflow-hidden">
+                    <div class="px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30 flex justify-between items-center shrink-0">
+                        <div class="flex items-center gap-2">
+                            <span class="material-symbols-outlined text-gray-400 text-lg">terminal</span>
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-200">Live Audit Log</span>
+                        </div>
+                        <button onclick="clearLogs()" class="text-xs text-gray-500 hover:text-gray-900 px-2 py-1 rounded hover:bg-gray-200/50 transition-colors">Clear Logs</button>
+                    </div>
+                    <div id="logContainer" class="flex-1 overflow-y-auto p-4 font-mono text-xs space-y-1 custom-scrollbar bg-white dark:bg-[#0f172a]">
+                        <!-- Logs injected here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+</div>
+
+<script>
+    const statusText = document.getElementById('statusText');
+    const statusSubtext = document.getElementById('statusSubtext');
+    const statusIndicator = document.getElementById('statusIndicator');
+    const statusPulse = document.getElementById('statusPulse');
+    const logContainer = document.getElementById('logContainer');
+    const btnOpenReport = document.getElementById('btnOpenReport');
+
+    function updateStatusUI(state) {
+        if (state === 'Running') {
+            statusText.textContent = "Audit in Progress";
+            statusSubtext.textContent = "Scanning system files and configurations...";
+            statusIndicator.classList.remove('bg-gray-400', 'bg-red-500', 'bg-emerald-500');
+            statusIndicator.classList.add('bg-emerald-500');
+            statusPulse.classList.add('animate-ping', 'bg-emerald-500');
+            btnOpenReport.classList.add('hidden'); // Hide report button while running
+        } else if (state === 'Completed') {
+            statusText.textContent = "Audit Complete";
+            statusSubtext.textContent = "Review the logs or open the full report.";
+            statusIndicator.classList.remove('bg-emerald-500', 'bg-red-500', 'bg-gray-400');
+            statusIndicator.classList.add('bg-blue-500');
+            statusPulse.classList.remove('animate-ping', 'bg-emerald-500');
+            btnOpenReport.classList.remove('hidden'); // SHOW report button
+        } else if (state === 'Stopped') {
+            statusText.textContent = "Operation Stopped";
+            statusSubtext.textContent = "User aborted the scan.";
+            statusIndicator.classList.remove('bg-emerald-500', 'bg-red-500');
+            statusIndicator.classList.add('bg-gray-400');
+            statusPulse.classList.remove('animate-ping');
+            btnOpenReport.classList.add('hidden');
+        } else if (state === 'Failed') {
+            statusText.textContent = "Audit Failed";
+            statusIndicator.classList.add('bg-red-500');
+            statusPulse.classList.remove('animate-ping');
+            btnOpenReport.classList.add('hidden');
+        }
+    }
+
+    function addLog(time, type, msg) {
+        const div = document.createElement('div');
+        div.className = "flex gap-3 text-gray-400 border-b border-gray-50 dark:border-gray-800/50 pb-1 mb-1 log-entry";
+        
+        let typeColor = "text-emerald-600";
+        if(type === "ERR") typeColor = "text-red-600";
+        if(type === "WARN") typeColor = "text-amber-500";
+        if(type === "SYS") typeColor = "text-blue-600";
+
+        div.innerHTML = `
+            <span class="w-16 shrink-0 opacity-50">${time}</span>
+            <span class="${typeColor} font-bold w-12 shrink-0">[${type}]</span>
+            <span class="text-gray-600 dark:text-gray-400 flex-1 break-words">${msg}</span>
+        `;
+        logContainer.appendChild(div);
+        logContainer.scrollTop = logContainer.scrollHeight;
+    }
+
+    function clearLogs() {
+        logContainer.innerHTML = '';
+    }
+
+    async function startScan(mode) {
+        clearLogs();
+        addLog(new Date().toLocaleTimeString(), "SYS", `Initiating ${mode} Scan...`);
+        try {
+            await fetch(`/api/start?mode=${mode}`);
+        } catch (e) {
+            addLog(new Date().toLocaleTimeString(), "ERR", "Failed to connect to backend engine.");
+        }
+    }
+
+    async function stopScan() {
+        addLog(new Date().toLocaleTimeString(), "WARN", "Stopping scan...");
+        await fetch('/api/stop');
+    }
+
+    async function openReport() {
+        try { await fetch('/api/open-report'); } 
+        catch (e) { alert("Could not open report automatically. Check Reports folder."); }
+    }
+
+    // Polling Loop
+    setInterval(async () => {
+        try {
+            const res = await fetch('/api/status');
+            const data = await res.json();
+            
+            updateStatusUI(data.status);
+            
+            if (data.logs && data.logs.length > 0) {
+                data.logs.forEach(log => {
+                    addLog(log.time, log.type, log.message);
+                });
+            }
+        } catch (e) {
+            // Backend offline
+        }
+    }, 1000);
+</script>
+</body>
+</html>
