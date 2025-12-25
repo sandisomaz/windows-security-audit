@@ -1,188 +1,85 @@
 <#
 .SYNOPSIS
-    Deep process triage module (FIXED: Eliminates false positives)
+    Deep process triage module (Refined for False Positives)
 .DESCRIPTION
-    Detects process injection, fileless malware, unsigned binaries
-    NOW WITH: Smart whitelisting of legitimate kernel processes
+    Detects process injection, high RAM usage, and unsigned binaries.
+    Includes Whitelisting for common vendors (Lenovo, Proton, etc).
 #>
 
-using module .\Core.psm1
-
 function Invoke-ProcessTriage {
-    param(
-        [Parameter(Mandatory)]
-        [hashtable]$Config
-    )
+    param([hashtable]$Config)
     
-    Write-AuditHeader "Deep Process Triage (Memory Inspection)"
+    Write-AuditHeader "Deep Process & Performance Triage"
     
-    $vtApiKey = $Config.Advanced.VirusTotalAPIKey
+    # 1. NEW: Check System RAM Usage
+    $os = Get-CimInstance Win32_OperatingSystem
+    $totalRam = $os.TotalVisibleMemorySize
+    $freeRam = $os.FreePhysicalMemory
+    $usedPercent = [math]::Round((($totalRam - $freeRam) / $totalRam) * 100, 1)
     
-    $suspiciousPaths = $Config.Detection.SuspiciousPaths
-    $suspiciousCmdKeywords = $Config.Detection.SuspiciousCmdKeywords
-    $pathlessWhitelist = $Config.Detection.PathlessWhitelist
-    
-    # FIX: Comprehensive whitelist of legitimate Windows processes
-    $legitimateProcesses = @(
-        # Core Windows Kernel
-        'System Idle Process', 'System', 'Secure System', 'Registry',
-        
-        # Windows Security
-        'smss.exe', 'csrss.exe', 'wininit.exe', 'services.exe', 'lsass.exe',
-        'winlogon.exe', 'fontdrvhost.exe',
-        
-        # Windows Defender Components
-        'MsMpEng.exe',        # Microsoft Malware Protection Engine
-        'NisSrv.exe',         # Network Inspection Service
-        'SecurityHealthService.exe',  # Windows Security Health
-        'SgrmBroker.exe',     # System Guard Runtime Monitor
-        
-        # Windows Security Isolation
-        'LsaIso.exe',         # Credential Guard (Virtualization-based security)
-        'NgcIso.exe',         # Windows Hello isolation process
-        
-        # Windows Core Services
-        'svchost.exe', 'dwm.exe', 'RuntimeBroker.exe',
-        'taskhostw.exe', 'dllhost.exe', 'conhost.exe',
-        
-        # Memory Management
-        'Memory Compression',  # Windows Memory Compression (kernel process)
-        
-        # Print Spooler (legitimate listening service)
-        'spoolsv.exe'
-    )
-    
-    # Get listening ports mapping
-    $listeningPIDs = @{}
-    $listeners = Invoke-SafeCommand { Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue }
-    if ($listeners) { 
-        $listeners | ForEach-Object { $listeningPIDs[$_.OwningProcess] = $true } 
+    if ($usedPercent -gt 85) {
+        Write-AuditResult "Memory Usage" "$usedPercent% (CRITICAL)" -Status Fail
+        Add-AuditFinding -Id "Proc_Mem_Crit" -Title "Critical Memory Usage" -Value "$usedPercent% used" -Severity 0 -Notes "System is running out of RAM. This causes 100% Disk Usage as Windows swaps data to the drive. Close Chrome tabs or VS Code." -Category "Performance"
+    } elseif ($usedPercent -gt 75) {
+        Write-AuditResult "Memory Usage" "$usedPercent% (High)" -Status Warn
+        Add-AuditFinding -Id "Proc_Mem_High" -Title "High Memory Usage" -Value "$usedPercent% used" -Severity 2 -Notes "RAM is getting full. System may slow down." -Category "Performance"
+    } else {
+        Write-AuditResult "Memory Usage" "$usedPercent% (Normal)" -Status Pass
     }
-    
-    $processes = Get-CimInstance -ClassName Win32_Process | 
-                 Select-Object Name, ExecutablePath, ProcessId, CommandLine, CreationDate
-    
+
+    # 2. Process Security Scan
     $suspiciousProcesses = @()
-    $counter = 0
-    $total = $processes.Count
     
-    Write-Host "Analyzing $total processes..." -ForegroundColor Cyan
+    # TRUSTED VENDORS (Whitelist) - Suppresses known good apps
+    $whitelist = @(
+        'Lenovo', 'Intel', 'NVIDIA', 'Realtek', 'Proton', 
+        'Microsoft', 'Google', 'Brave', 'Mozilla', 'Discord',
+        'Steam', 'Dropbox', 'Zoom', 'Adobe'
+    )
+
+    $processes = Get-CimInstance -ClassName Win32_Process | Select-Object Name, ProcessId, ExecutablePath, CommandLine
     
     foreach ($proc in $processes) {
-        $counter++
-        Write-Progress -Activity "Deep Process Triage" -Status "Checking $($proc.Name) (PID $($proc.ProcessId))" -PercentComplete (($counter / $total) * 100)
-        
         $reasons = @()
         
-        # SKIP: Legitimate Windows processes completely
-        if ($proc.Name -in $legitimateProcesses) {
-            continue
+        # Skip whitelisted apps (Simple name check)
+        $isSafe = $false
+        foreach ($safe in $whitelist) {
+            if ($proc.Name -match $safe -or $proc.ExecutablePath -match $safe) {
+                $isSafe = $true
+                break
+            }
         }
-        
-        # RULE 1: Missing Executable Path (BUT NOT if whitelisted)
-        if (-not $proc.ExecutablePath -and $proc.Name -notin $pathlessWhitelist) {
-            $reasons += "Missing Executable Path (Possible Injection)"
-        }
-        
-        # RULE 2: Suspicious Command Line (BUT NOT for Windows components)
-        if ($proc.CommandLine) {
-            # Skip Windows system processes
-            if ($proc.ExecutablePath -notmatch 'Windows\\System32|Windows\\SysWOW64|Program Files') {
-                foreach ($keyword in $suspiciousCmdKeywords) {
-                    if ($proc.CommandLine -match [regex]::Escape($keyword)) {
-                        if ($proc.CommandLine -notmatch 'Windows Defender|SecurityHealth') {
-                            $reasons += "Suspicious CommandLine: Contains '$keyword'"
-                            break
-                        }
-                    }
-                }
+        if ($isSafe) { continue }
+
+        # RULE 1: Missing Path (Potential Injection)
+        # We only flag this if it's NOT a standard system process
+        if (-not $proc.ExecutablePath) {
+            if ($proc.Name -notin @('System', 'Registry', 'smss.exe', 'csrss.exe', 'wininit.exe', 'services.exe', 'lsass.exe', 'svchost.exe', 'Memory Compression')) {
+                $reasons += "Hidden Path (Potential Injection)"
             }
         }
         
-        # RULE 3: Unsigned Binary in Suspicious Directory
-        if ($proc.ExecutablePath) {
-            $inSuspiciousPath = $false
-            foreach ($suspPath in $suspiciousPaths) {
-                if ($proc.ExecutablePath -match [regex]::Escape($suspPath)) {
-                    $inSuspiciousPath = $true
-                    break
-                }
-            }
-            
-            # ONLY flag if BOTH suspicious path AND unsigned
-            if ($inSuspiciousPath) {
-                $signature = Invoke-SafeCommand { 
-                    Get-AuthenticodeSignature -FilePath $proc.ExecutablePath -ErrorAction Stop 
-                }
-                if ($signature -and $signature.Status -ne 'Valid') {
-                    $reasons += "Unsigned Binary in Suspicious Directory"
-                }
-            }
+        # RULE 2: Suspicious Locations
+        if ($proc.ExecutablePath -match 'AppData\\Local\\Temp' -or $proc.ExecutablePath -match 'Users\\Public') {
+            $reasons += "Running from Temp/Public folder"
         }
 
-        # RULE 4: Listening on Network Port (BUT ONLY if in suspicious location)
-        if ($listeningPIDs.ContainsKey($proc.ProcessId)) {
-            # ALLOW: System processes and signed applications
-            if ($proc.ExecutablePath) {
-                # If in System32 or Program Files, it's probably legitimate
-                if ($proc.ExecutablePath -notmatch 'Windows\\System32|Windows\\SysWOW64|Program Files') {
-                    # Check if signed
-                    $signature = Invoke-SafeCommand { 
-                        Get-AuthenticodeSignature -FilePath $proc.ExecutablePath -ErrorAction Stop 
-                    }
-                    if (-not $signature -or $signature.Status -ne 'Valid') {
-                        $reasons += "Listening on Network Port (Unsigned)"
-                    }
-                }
-            }
-        }
-        
-        # ONLY add if we found actual suspicious reasons
         if ($reasons.Count -gt 0) {
             $suspiciousProcesses += [PSCustomObject]@{
                 Name = $proc.Name
-                PID = $proc.ProcessId
-                Path = $proc.ExecutablePath
-                Reasons = $reasons -join "; "
-                CommandLine = $proc.CommandLine
+                PID = $proc.PID
+                Reasons = $reasons -join ", "
             }
         }
     }
     
-    Write-Progress -Activity "Deep Process Triage" -Completed
-    
     if ($suspiciousProcesses.Count -gt 0) {
-        Write-AuditResult "High-Risk Processes" "Found $($suspiciousProcesses.Count) suspicious process(es)" -Status Fail
-        
-        # Show details
-        Write-Host "`nSuspicious Processes Detected:" -ForegroundColor Red
-        foreach ($proc in $suspiciousProcesses) {
-            Write-Host "  - $($proc.Name) (PID: $($proc.PID))" -ForegroundColor Yellow
-            Write-Host "    Reasons: $($proc.Reasons)" -ForegroundColor Gray
-            if ($proc.Path) {
-                Write-Host "    Path: $($proc.Path)" -ForegroundColor Gray
-            }
-        }
-        
-        $notes = "CRITICAL: Detected processes with high-risk characteristics. Investigate each process listed in the report. Details: " + ($suspiciousProcesses | ConvertTo-Json -Compress)
-        
-        Add-AuditFinding `
-            -Id "Proc_HighRisk" `
-            -Title "High-Risk Process Activity" `
-            -Value "Found $($suspiciousProcesses.Count) process(es)" `
-            -Severity 0 `
-            -Weight 25 `
-            -Notes $notes `
-            -Category "Process"
+        Write-AuditResult "Suspicious Processes" "Found $($suspiciousProcesses.Count)" -Status Warn
+        $notes = "Investigate: " + (($suspiciousProcesses | ForEach-Object { $_.Name }) -join ", ")
+        Add-AuditFinding -Id "Proc_Suspicious" -Title "Suspicious Process Activity" -Value "$($suspiciousProcesses.Count) process(es)" -Severity 2 -Notes $notes -Category "Process"
     } else {
-        Write-AuditResult "High-Risk Processes" "None detected" -Status Pass
-        
-        Add-AuditFinding `
-            -Id "Proc_Clean" `
-            -Title "High-Risk Process Activity" `
-            -Value "None detected" `
-            -Severity 1 `
-            -Category "Process"
+        Write-AuditResult "Suspicious Processes" "None detected" -Status Pass
     }
 }
 

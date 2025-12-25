@@ -211,8 +211,22 @@
     }
 
     async function openReport() {
-        try { await fetch('/api/open-report'); } 
-        catch (e) { alert("Could not open report automatically. Check Reports folder."); }
+        try { 
+            // Ask server for the URL
+            const response = await fetch('/api/open-report'); 
+            const data = await response.json();
+            
+            if (data.status === 'success' && data.url) {
+                // Open the URL in a new tab
+                window.open(data.url, '_blank');
+            } else {
+                alert("Report not found! Please check the 'Reports' folder manually.");
+            }
+        } 
+        catch (e) { 
+            console.error(e);
+            alert("Could not connect to backend."); 
+        }
     }
 
     // Polling Loop

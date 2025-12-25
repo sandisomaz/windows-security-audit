@@ -1,690 +1,317 @@
 <#
 .SYNOPSIS
-    Enhanced report generation module with better formatting and AI export
+    Advanced Report Generator - v5.5 (Encoding & Print Fix)
 .DESCRIPTION
-    Generates HTML, JSON, and CSV reports with:
-    - Improved table formatting (no squashing)
-    - Copy-to-clipboard buttons for fixes
-    - AI-ready export
-    - Interactive fix buttons
+    Generates a professional, Tailwind CSS-based security report.
+    Includes fixes for UTF-8 encoding and PDF printing.
 #>
 
-using module .\Core.psm1
-
-# Load required assembly for HTML encoding
-Add-Type -AssemblyName System.Web
-
 function New-AuditReport {
-    <#
-    .SYNOPSIS
-        Generates audit reports in multiple formats
-    .PARAMETER ReportPath
-        Base path for report folder
-    .PARAMETER Config
-        Configuration hashtable
-    #>
     param(
         [Parameter(Mandatory)]
         [string]$ReportPath,
-        
         [Parameter(Mandatory)]
         [hashtable]$Config
     )
     
-    Write-AuditHeader "Generating Reports"
+    Write-Host "Generating Modern HTML Report..." -ForegroundColor Cyan
     
-    # Create report folder
+    # 1. Gather Data
+    $findings = Get-AuditFindings
+    $sysInfo = Get-SystemInfo
+    $riskData = Get-RiskScore
+    
+    # Calculate Counts
+    $critCount = ($findings | Where-Object { $_.Severity -eq 0 }).Count
+    $warnCount = ($findings | Where-Object { $_.Severity -eq 2 }).Count
+    $infoCount = ($findings | Where-Object { $_.Severity -eq 3 }).Count
+    $passCount = ($findings | Where-Object { $_.Severity -eq 1 }).Count
+    $totalCount = $findings.Count
+    
+    # Calculate Security Score
+    $securityScore = [math]::Round(100 - $riskData.RiskPercent)
+    
+    # Calculate SVG Circle Stroke
+    $strokeOffset = 502.6 - (502.6 * $securityScore / 100)
+    $scoreColor = if ($securityScore -ge 80) { "text-emerald-500" } elseif ($securityScore -ge 50) { "text-amber-500" } else { "text-red-500" }
+    $scoreLabel = if ($securityScore -ge 80) { "Good Standing" } elseif ($securityScore -ge 50) { "Needs Improvement" } else { "Critical Risk" }
+    $scoreBg = if ($securityScore -ge 80) { "bg-emerald-50 text-emerald-600 border-emerald-100" } elseif ($securityScore -ge 50) { "bg-amber-50 text-amber-600 border-amber-100" } else { "bg-red-50 text-red-600 border-red-100" }
+    $scoreIcon = if ($securityScore -ge 80) { "check_circle" } elseif ($securityScore -ge 50) { "warning" } else { "gpp_bad" }
+
+    # 2. Build HTML Content
+    
+    $htmlHead = @"
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>System Security Report</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+        theme: {
+            extend: {
+                colors: {
+                    primary: "#10b981", "primary-dark": "#059669", danger: "#ef4444", warning: "#f59e0b",
+                    "bg-body": "#f3f4f6", "bg-surface": "#ffffff", "border-subtle": "#e5e7eb",
+                    "text-main": "#111827", "text-secondary": "#6b7280"
+                },
+                fontFamily: { display: ["Inter", "sans-serif"], mono: ["JetBrains Mono", "monospace"] },
+                boxShadow: { 'floating': '0 20px 25px -5px rgba(0, 0, 0, 0.05), 0 10px 10px -5px rgba(0, 0, 0, 0.02)' }
+            }
+        }
+    };
+</script>
+<style>
+    .score-ring-gradient { transition: stroke-dashoffset 1s ease-in-out; filter: drop-shadow(0px 2px 4px rgba(0,0,0, 0.1)); }
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
+    
+    /* PRINT STYLES */
+    @media print {
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
+        .no-print, button { display: none !important; }
+        .shadow-floating, .shadow-sm { box-shadow: none !important; border: 1px solid #eee; }
+        .h-screen { height: auto; }
+        .overflow-y-auto { overflow: visible; }
+    }
+</style>
+</head>
+<body class="bg-bg-body h-screen flex items-center justify-center p-6 font-display text-text-main antialiased">
+<div class="w-full max-w-[1400px] h-[92vh] bg-bg-surface shadow-floating rounded-2xl flex flex-col overflow-hidden ring-1 ring-black/5 relative">
+    
+    <!-- TOP BAR -->
+    <div class="h-12 border-b border-border-subtle flex items-center justify-between px-6 shrink-0 bg-white z-20 no-print">
+        <div class="flex items-center gap-3">
+            <span class="w-3 h-3 rounded-full bg-red-400"></span><span class="w-3 h-3 rounded-full bg-amber-400"></span><span class="w-3 h-3 rounded-full bg-green-400"></span>
+        </div>
+        <div class="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-md border border-gray-100">
+            <span class="material-symbols-outlined text-sm text-gray-400">lock</span>
+            <span class="font-medium text-text-secondary text-xs">Security Audit Framework v5.4</span>
+        </div>
+        <div class="flex gap-4 text-gray-400"><span class="material-symbols-outlined text-[20px]">settings</span></div>
+    </div>
+
+    <!-- HEADER -->
+    <header class="px-8 py-8 bg-white border-b border-border-subtle flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-6">
+            <div class="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center text-white shadow-lg shadow-emerald-100">
+                <span class="material-symbols-outlined text-[32px]">shield_lock</span>
+            </div>
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 tracking-tight">System Security Report</h1>
+                <div class="flex items-center gap-4 mt-2 text-sm text-gray-500 font-medium">
+                    <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">calendar_today</span> $(Get-Date -Format "MMM dd, yyyy")</span>
+                    <span class="text-gray-300">&bull;</span>
+                    <span class="flex items-center gap-1.5"><span class="material-symbols-outlined text-[18px]">schedule</span> $(Get-Date -Format "HH:mm tt")</span>
+                    <span class="text-gray-300">&bull;</span>
+                    <span class="bg-emerald-50 text-emerald-600 px-2.5 py-0.5 rounded-md text-xs font-semibold ring-1 ring-emerald-100">Finalized</span>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center gap-3 no-print">
+            <button onclick="window.print()" class="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-200 rounded-xl text-gray-600 hover:bg-gray-50 transition-all text-sm font-semibold shadow-sm">
+                <span class="material-symbols-outlined text-[20px]">print</span> Print
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 overflow-y-auto bg-gray-50/50 p-8 custom-scrollbar">
+        <div class="grid grid-cols-12 gap-6 mb-8">
+            
+            <!-- SCORE CARD -->
+            <div class="col-span-12 lg:col-span-3 bg-white rounded-2xl border border-gray-100 p-6 flex flex-col items-center justify-center shadow-sm relative">
+                <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider mb-6 self-start">Security Score</h3>
+                <div class="relative w-48 h-48 flex items-center justify-center mb-4">
+                    <svg class="w-full h-full transform -rotate-90">
+                        <circle class="text-gray-100" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" stroke-width="12"></circle>
+                        <circle class="$scoreColor score-ring-gradient" cx="96" cy="96" fill="transparent" r="80" stroke="currentColor" stroke-dasharray="502.6" stroke-dashoffset="$strokeOffset" stroke-linecap="round" stroke-width="12"></circle>
+                    </svg>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center">
+                        <span class="text-5xl font-bold text-gray-900 tracking-tighter">$securityScore</span>
+                        <span class="text-sm text-gray-400 font-medium mt-1">/ 100</span>
+                    </div>
+                </div>
+                <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full $scoreBg text-xs font-bold border">
+                    <span class="material-symbols-outlined text-[16px] filled">$scoreIcon</span> $scoreLabel
+                </div>
+            </div>
+
+            <!-- STATS CARDS -->
+            <div class="col-span-12 lg:col-span-5 grid grid-cols-2 gap-4">
+                <!-- Critical -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:border-red-100 transition-all group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-red-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
+                    <div class="flex justify-between items-start z-10">
+                        <div class="w-10 h-10 rounded-lg bg-red-50 text-red-500 flex items-center justify-center border border-red-100"><span class="material-symbols-outlined text-xl">gpp_bad</span></div>
+                        <span class="text-4xl font-bold text-gray-900">$critCount</span>
+                    </div>
+                    <div class="mt-6 z-10"><p class="text-base font-bold text-gray-800">Critical Threats</p></div>
+                </div>
+                <!-- Warnings -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:border-amber-100 transition-all group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-amber-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
+                    <div class="flex justify-between items-start z-10">
+                        <div class="w-10 h-10 rounded-lg bg-amber-50 text-amber-500 flex items-center justify-center border border-amber-100"><span class="material-symbols-outlined text-xl">warning</span></div>
+                        <span class="text-4xl font-bold text-gray-900">$warnCount</span>
+                    </div>
+                    <div class="mt-6 z-10"><p class="text-base font-bold text-gray-800">Warnings</p></div>
+                </div>
+                <!-- Info -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:border-blue-100 transition-all group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-blue-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
+                    <div class="flex justify-between items-start z-10">
+                        <div class="w-10 h-10 rounded-lg bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100"><span class="material-symbols-outlined text-xl">info</span></div>
+                        <span class="text-4xl font-bold text-gray-900">$infoCount</span>
+                    </div>
+                    <div class="mt-6 z-10"><p class="text-base font-bold text-gray-800">Info / Notices</p></div>
+                </div>
+                <!-- Passed -->
+                <div class="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col justify-between hover:border-emerald-100 transition-all group relative overflow-hidden">
+                    <div class="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-bl-full -mr-10 -mt-10 opacity-50"></div>
+                    <div class="flex justify-between items-start z-10">
+                        <div class="w-10 h-10 rounded-lg bg-gray-50 text-emerald-500 flex items-center justify-center border border-gray-100"><span class="material-symbols-outlined text-xl">checklist</span></div>
+                        <span class="text-4xl font-bold text-gray-900">$passCount</span>
+                    </div>
+                    <div class="mt-6 z-10"><p class="text-base font-bold text-gray-800">Checks Passed</p></div>
+                </div>
+            </div>
+
+            <!-- SYSTEM INFO -->
+            <div class="col-span-12 lg:col-span-4 bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                <div class="flex items-center justify-between mb-8">
+                    <h3 class="text-xs font-bold text-gray-400 uppercase tracking-wider">Target System</h3>
+                    <span class="px-2.5 py-1 bg-emerald-50 text-emerald-600 rounded-md text-[10px] tracking-wide font-bold border border-emerald-100">ONLINE</span>
+                </div>
+                <div class="space-y-6">
+                    <div class="grid grid-cols-2 gap-x-4 gap-y-6">
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">Hostname</p>
+                            <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[20px] text-gray-300">desktop_windows</span><span class="text-sm font-bold text-gray-800 font-mono">$($sysInfo.ComputerName)</span></div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">OS</p>
+                            <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[20px] text-gray-300">grid_view</span><span class="text-sm font-bold text-gray-800 text-xs">$($sysInfo.OSName)</span></div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">Memory</p>
+                            <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[20px] text-gray-300">memory</span><span class="text-sm font-bold text-gray-800 font-mono">$($sysInfo.TotalRAM_GB) GB</span></div>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">User</p>
+                            <div class="flex items-center gap-2.5"><span class="material-symbols-outlined text-[20px] text-gray-300">person</span><span class="text-sm font-bold text-gray-800">$env:USERNAME</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- FINDINGS TABLE -->
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col">
+            <div class="px-8 py-5 border-b border-gray-100 flex items-center justify-between bg-white">
+                <div class="flex items-center gap-4">
+                    <h3 class="text-lg font-bold text-gray-900">Detailed Findings</h3>
+                    <span class="px-3 py-1 rounded-full bg-gray-100 text-xs font-semibold text-gray-600 border border-gray-200">$totalCount Issues Found</span>
+                </div>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-gray-50/50 border-b border-gray-100 text-[11px] uppercase tracking-wider text-gray-400 font-bold">
+                            <th class="px-8 py-5 w-32">Severity</th>
+                            <th class="px-8 py-5">Finding</th>
+                            <th class="px-8 py-5">Category / ID</th>
+                            <th class="px-8 py-5 w-48 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="text-sm divide-y divide-gray-50">
+"@
+
+    # --- GENERATE ROWS ---
+    $rows = ""
+    
+    foreach ($f in $findings) {
+        # Determine Severity Styles
+        if ($f.Severity -eq 0) { # FAIL (Critical)
+            $badge = "<span class='inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-50 text-red-600 border border-red-100 text-xs font-bold'><span class='material-symbols-outlined text-[14px] filled'>error</span> Critical</span>"
+        } elseif ($f.Severity -eq 2) { # WARN
+            $badge = "<span class='inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 text-amber-600 border border-amber-100 text-xs font-bold'><span class='material-symbols-outlined text-[14px] filled'>warning</span> Warning</span>"
+        } elseif ($f.Severity -eq 1) { # PASS
+            $badge = "<span class='inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 text-xs font-bold'><span class='material-symbols-outlined text-[14px] filled'>check_circle</span> Pass</span>"
+        } else { # INFO
+            $badge = "<span class='inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-50 text-blue-600 border border-blue-100 text-xs font-bold'><span class='material-symbols-outlined text-[14px] filled'>info</span> Info</span>"
+        }
+
+        # Safe String with HTML Encoding
+        $title = [System.Web.HttpUtility]::HtmlEncode($f.Title)
+        $value = [System.Web.HttpUtility]::HtmlEncode($f.Value)
+        $cat = [System.Web.HttpUtility]::HtmlEncode($f.Category)
+        
+        # Action Button (Copy Fix)
+        $actionBtn = ""
+        if ($f.Notes -match "Run:\s*(.+?)(\r|\n|$)") {
+            $cmd = $matches[1].Trim()
+            # Escape quotes for the JavaScript function call
+            $safeCmd = [System.Web.HttpUtility]::HtmlAttributeEncode($cmd)
+            $actionBtn = "<button onclick='copyToClipboard(`$safeCmd`)' class='inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100 bg-transparent rounded-lg border border-transparent transition-all'><span class='material-symbols-outlined text-[16px]'>content_copy</span> Copy Fix</button>"
+        }
+
+        $rows += @"
+<tr class="group hover:bg-gray-50/50 transition-colors">
+    <td class="px-8 py-5 align-top">$badge</td>
+    <td class="px-8 py-5 align-top">
+        <p class="text-sm font-bold text-gray-900">$title</p>
+        <p class="text-xs text-gray-500 mt-1.5 leading-relaxed">$value</p>
+    </td>
+    <td class="px-8 py-5 align-top">
+        <code class="px-2.5 py-1.5 bg-gray-100 rounded-md text-[11px] font-mono text-gray-600 border border-gray-200">$cat</code>
+    </td>
+    <td class="px-8 py-5 align-top text-right">$actionBtn</td>
+</tr>
+"@
+    }
+
+    $htmlFoot = @"
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+</div>
+<script>
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text).then(() => {
+            alert("Command copied to clipboard!");
+        });
+    }
+</script>
+</body>
+</html>
+"@
+
+    # 3. Save Report - FORCE UTF8 ENCODING
+    $finalHTML = $htmlHead + $rows + $htmlFoot
+    
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
     $reportFolder = Join-Path $ReportPath "WinSecAudit_$timestamp"
     New-Item -Path $reportFolder -ItemType Directory -Force | Out-Null
     
-    # Get findings and system info
-    $findings = Get-AuditFindings
-    $systemInfo = Get-SystemInfo
-    $riskScore = Get-RiskScore
+    $finalPath = Join-Path $reportFolder "report.html"
     
-    # Prepare report data
-    $reportData = @{
-        GeneratedAt = Get-Date -Format "s"
-        SystemInfo = $systemInfo
-        RiskScore = $riskScore
-        Findings = $findings
-    }
+    # Use .NET method to ensure BOM is written correctly for browsers to detect
+    [System.IO.File]::WriteAllText($finalPath, $finalHTML, [System.Text.Encoding]::UTF8)
     
-    $reports = @()
+    Write-Host "Report Saved: $finalPath" -ForegroundColor Green
     
-    # Generate JSON report
-    if ($Config.Output.GenerateJSON) {
-        $jsonPath = Join-Path $reportFolder "report.json"
-        Export-JSONReport -Data $reportData -Path $jsonPath
-        $reports += $jsonPath
-    }
-    
-    # Generate HTML report
-    if ($Config.Output.GenerateHTML) {
-        $htmlPath = Join-Path $reportFolder "report.html"
-        Export-HTMLReport -Data $reportData -Path $htmlPath
-        $reports += $htmlPath
-        
-        # Auto-open if configured
-        if ($Config.Output.AutoOpenReport) {
-            Start-Process $htmlPath
-        }
-    }
-    
-    # Generate CSV report
-    if ($Config.Output.GenerateCSV) {
-        $csvPath = Join-Path $reportFolder "report.csv"
-        Export-CSVReport -Data $reportData -Path $csvPath
-        $reports += $csvPath
-    }
-    
-    # Generate AI-ready report
-    $aiPath = Join-Path $reportFolder "report_for_ai.txt"
-    Export-AIReport -Data $reportData -Path $aiPath
-    $reports += $aiPath
-    
-    Write-AuditResult "Reports Generated" "$($reports.Count) file(s)" -Status Pass
-    Write-Host ""
-    Write-Host "Reports saved to:" -ForegroundColor Cyan
-    Write-Host "  $reportFolder" -ForegroundColor Gray
-    Write-Host ""
-    
-    foreach ($report in $reports) {
-        Write-Host "  - $(Split-Path $report -Leaf)" -ForegroundColor Gray
-    }
+    # Generate JSON
+    $jsonData = @{ System=$sysInfo; Score=$riskData; Findings=$findings } | ConvertTo-Json -Depth 5
+    [System.IO.File]::WriteAllText((Join-Path $reportFolder "report.json"), $jsonData, [System.Text.Encoding]::UTF8)
     
     return $reportFolder
-}
-
-function Export-JSONReport {
-    param(
-        [hashtable]$Data,
-        [string]$Path
-    )
-    
-    try {
-        $Data | ConvertTo-Json -Depth 10 | Out-File -FilePath $Path -Encoding UTF8
-        Write-AuditLog "JSON report saved: $Path" -Level Info
-    }
-    catch {
-        Write-AuditLog "Failed to generate JSON report: $($_.Exception.Message)" -Level Error
-    }
-}
-
-function Export-CSVReport {
-    param(
-        [hashtable]$Data,
-        [string]$Path
-    )
-    
-    try {
-        $Data.Findings | Export-Csv -Path $Path -NoTypeInformation -Encoding UTF8
-        Write-AuditLog "CSV report saved: $Path" -Level Info
-    }
-    catch {
-        Write-AuditLog "Failed to generate CSV report: $($_.Exception.Message)" -Level Error
-    }
-}
-
-function Export-AIReport {
-    <#
-    .SYNOPSIS
-        Generates AI-friendly text report for ChatGPT/Claude
-    #>
-    param(
-        [hashtable]$Data,
-        [string]$Path
-    )
-    
-    try {
-        $sysInfo = $Data.SystemInfo
-        $riskScore = $Data.RiskScore
-        $findings = $Data.Findings
-        
-        $aiReport = @"
-==============================================================================
-WINDOWS SECURITY AUDIT REPORT - AI ANALYSIS REQUEST
-==============================================================================
-
-Generated: $($Data.GeneratedAt)
-
-SYSTEM INFORMATION:
--------------------
-Computer Name: $($sysInfo.ComputerName)
-OS: $($sysInfo.OSName)
-Architecture: $($sysInfo.Architecture)
-RAM: $($sysInfo.TotalRAM_GB) GB
-Last Boot: $($sysInfo.LastBoot)
-
-RISK ASSESSMENT:
-----------------
-Overall Risk: $($riskScore.SeverityLabel) ($($riskScore.RiskPercent)%)
-Raw Score: $($riskScore.RawScore) / $($riskScore.MaxPossible)
-
-ISSUE SUMMARY:
---------------
-Critical Issues (FAIL): $(($findings | Where-Object {$_.Severity -eq 0}).Count)
-Warnings (WARN): $(($findings | Where-Object {$_.Severity -eq 2}).Count)
-Passed Checks (PASS): $(($findings | Where-Object {$_.Severity -eq 1}).Count)
-Informational (INFO): $(($findings | Where-Object {$_.Severity -eq 3}).Count)
-
-==============================================================================
-DETAILED FINDINGS:
-==============================================================================
-
-"@
-        
-        foreach ($finding in $findings) {
-            $sevText = ConvertTo-SeverityText -Severity $finding.Severity
-            $aiReport += @"
-
-[$sevText] $($finding.Title)
-$("-" * 70)
-ID: $($finding.Id)
-Category: $($finding.Category)
-Value: $($finding.Value)
-Weight: $($finding.Weight)
-Timestamp: $($finding.Timestamp)
-
-Notes: $($finding.Notes)
-
-"@
-        }
-        
-        $aiReport += @"
-
-==============================================================================
-AI ASSISTANCE REQUEST:
-==============================================================================
-
-Please analyze this security audit report and provide:
-
-1. PRIORITIZATION: Rank the issues by urgency (what to fix first)
-2. ROOT CAUSE: Identify if there's a common underlying problem
-3. STEP-BY-STEP FIXES: Provide detailed fix instructions for each critical issue
-4. RISK ANALYSIS: Explain the real-world impact of each issue
-5. PREVENTION: Suggest how to prevent these issues in the future
-
-Thank you!
-
-==============================================================================
-"@
-        
-        $aiReport | Out-File -FilePath $Path -Encoding UTF8
-        Write-AuditLog "AI report saved: $Path" -Level Info
-    }
-    catch {
-        Write-AuditLog "Failed to generate AI report: $($_.Exception.Message)" -Level Error
-    }
-}
-
-function Export-HTMLReport {
-    param(
-        [hashtable]$Data,
-        [string]$Path
-    )
-    
-    try {
-        $html = Build-HTMLReport -Data $Data
-        $html | Out-File -FilePath $Path -Encoding UTF8
-        Write-AuditLog "HTML report saved: $Path" -Level Info
-    }
-    catch {
-        Write-AuditLog "Failed to generate HTML report: $($_.Exception.Message)" -Level Error
-    }
-}
-
-function Build-HTMLReport {
-    param([hashtable]$Data)
-    
-    $sysInfo = $Data.SystemInfo
-    $riskScore = $Data.RiskScore
-    $findings = $Data.Findings
-    
-    # Determine severity color
-    $severityColor = switch ($riskScore.SeverityLabel) {
-        "HIGH"   { "bad" }
-        "MEDIUM" { "warn" }
-        "LOW"    { "good" }
-        default  { "info" }
-    }
-    
-    # Build findings table
-    $findingsRows = ""
-    foreach ($finding in $findings) {
-        $sevText = ConvertTo-SeverityText -Severity $finding.Severity
-        $sevClass = $sevText
-
-        $safeId = [System.Web.HttpUtility]::HtmlEncode($finding.Id)
-        $safeTitle = [System.Web.HttpUtility]::HtmlEncode($finding.Title)
-        $safeValue = [System.Web.HttpUtility]::HtmlEncode($finding.Value)
-        $safeNotes = [System.Web.HttpUtility]::HtmlEncode($finding.Notes)
-        
-        # Extract quick fix command if present in notes
-        $quickFixButton = ""
-        if ($finding.Notes -match "Run:\s*(.+?)(\r|\n|$)") {
-            $command = $matches[1].Trim()
-            $safeCommand = [System.Web.HttpUtility]::HtmlAttributeEncode($command)
-            $quickFixButton = @"
-<button class='copy-btn' onclick='copyToClipboard("$safeCommand")' title='Copy command'>
-    📋 Copy Fix
-</button>
-"@
-        }
-        
-        $findingsRows += @"
-<tr>
-    <td>$safeId</td>
-    <td><strong>$safeTitle</strong></td>
-    <td>$safeValue</td>
-    <td><span class='severity-badge $sevClass'>$sevText</span></td>
-    <td class='text-center'>$($finding.Weight)</td>
-    <td>$($finding.Category)</td>
-    <td class='notes-cell'>
-        $safeNotes
-        $quickFixButton
-    </td>
-</tr>
-
-"@
-    }
-    
-    # Build complete HTML
-    $html = @"
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Windows Security Audit Report</title>
-    <style>
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
-        
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            padding: 20px;
-            min-height: 100vh;
-        }
-        
-        .container {
-            max-width: 1600px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 10px;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-            overflow: hidden;
-        }
-        
-        .header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 30px;
-            text-align: center;
-        }
-        
-        .header h1 {
-            font-size: 2.5em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .header p {
-            opacity: 0.9;
-            font-size: 1.1em;
-        }
-        
-        .content {
-            padding: 40px;
-        }
-        
-        .action-buttons {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 30px;
-            justify-content: center;
-        }
-        
-        .action-btn {
-            padding: 15px 30px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            color: white;
-        }
-        
-        .action-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
-        }
-        
-        .btn-ai {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        
-        .btn-copy {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        
-        .info-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            margin-bottom: 30px;
-        }
-        
-        .info-card {
-            background: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            border-left: 4px solid #667eea;
-        }
-        
-        .info-card h3 {
-            color: #667eea;
-            margin-bottom: 10px;
-            font-size: 0.9em;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .info-card p {
-            color: #333;
-            font-size: 1.1em;
-            font-weight: 600;
-        }
-        
-        .risk-score {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 10px;
-            text-align: center;
-            margin: 30px 0;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-        
-        .risk-score.LOW {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        
-        .risk-score.MEDIUM {
-            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
-        }
-        
-        .risk-score.HIGH {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        
-        .risk-score h2 {
-            font-size: 3em;
-            margin-bottom: 10px;
-        }
-        
-        .risk-score p {
-            opacity: 0.9;
-            font-size: 1.2em;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
-            border-radius: 8px;
-            overflow: hidden;
-        }
-        
-        thead {
-            background: #667eea;
-            color: white;
-        }
-        
-        th, td {
-            padding: 15px;
-            text-align: left;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        
-        th {
-            font-weight: 600;
-            text-transform: uppercase;
-            font-size: 0.85em;
-            letter-spacing: 1px;
-        }
-        
-        tbody tr:hover {
-            background: #f8f9fa;
-        }
-        
-        .FAIL {
-            color: #dc3545;
-            font-weight: bold;
-            background: #ffe6e6;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-        
-        .WARN {
-            color: #ff9800;
-            font-weight: bold;
-            background: #fff3e0;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-        
-        .PASS {
-            color: #28a745;
-            font-weight: bold;
-            background: #e6ffe6;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-        
-        .INFO {
-            color: #6c757d;
-            font-weight: bold;
-            background: #f0f0f0;
-            padding: 4px 8px;
-            border-radius: 4px;
-        }
-        
-        .footer {
-            background: #f8f9fa;
-            padding: 20px;
-            text-align: center;
-            color: #6c757d;
-            font-size: 0.9em;
-            border-top: 1px solid #e0e0e0;
-        }
-        
-        .stats {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 15px;
-            margin: 30px 0;
-        }
-        
-        .stat-box {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            border: 2px solid #e0e0e0;
-        }
-        
-        .stat-box h3 {
-            font-size: 2em;
-            margin-bottom: 5px;
-        }
-        
-        .stat-box.fail h3 { color: #dc3545; }
-        .stat-box.warn h3 { color: #ff9800; }
-        .stat-box.pass h3 { color: #28a745; }
-        .stat-box.info h3 { color: #6c757d; }
-        
-        .stat-box p {
-            color: #6c757d;
-            font-size: 0.9em;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: #28a745;
-            color: white;
-            padding: 15px 25px;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-            opacity: 0;
-            transition: opacity 0.3s;
-            z-index: 1000;
-        }
-        
-        .toast.show {
-            opacity: 1;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>🛡️ Windows Security Audit Report</h1>
-            <p>Forensic Suite v5.1 - Comprehensive Security Assessment</p>
-        </div>
-        
-        <div class="content">
-            <div class="action-buttons">
-                <button class="action-btn btn-copy" onclick="copyAllFindings()">
-                    📋 Copy Full Report
-                </button>
-                <button class="action-btn btn-ai" onclick="openAIAssistant()">
-                    🤖 Get AI Help
-                </button>
-            </div>
-            
-            <div class="info-grid">
-                <div class="info-card">
-                    <h3>Computer Name</h3>
-                    <p>$($sysInfo.ComputerName)</p>
-                </div>
-                <div class="info-card">
-                    <h3>Operating System</h3>
-                    <p>$($sysInfo.OSName)</p>
-                </div>
-                <div class="info-card">
-                    <h3>Architecture</h3>
-                    <p>$($sysInfo.Architecture)</p>
-                </div>
-                <div class="info-card">
-                    <h3>Generated</h3>
-                    <p>$($Data.GeneratedAt)</p>
-                </div>
-            </div>
-            
-            <div class="risk-score $($riskScore.SeverityLabel)">
-                <h2>$($riskScore.SeverityLabel) RISK</h2>
-                <p>$($riskScore.RiskPercent)% Risk Score</p>
-                <p style="font-size: 0.9em; margin-top: 10px;">
-                    $($riskScore.RawScore) points out of $($riskScore.MaxPossible) possible
-                </p>
-            </div>
-            
-            <div class="stats">
-                <div class="stat-box fail">
-                    <h3>$(($findings | Where-Object {$_.Severity -eq 0}).Count)</h3>
-                    <p>Critical Issues</p>
-                </div>
-                <div class="stat-box warn">
-                    <h3>$(($findings | Where-Object {$_.Severity -eq 2}).Count)</h3>
-                    <p>Warnings</p>
-                </div>
-                <div class="stat-box pass">
-                    <h3>$(($findings | Where-Object {$_.Severity -eq 1}).Count)</h3>
-                    <p>Passed Checks</p>
-                </div>
-                <div class="stat-box info">
-                    <h3>$($findings.Count)</h3>
-                    <p>Total Findings</p>
-                </div>
-            </div>
-            
-            <h2 style="margin-top: 40px; color: #667eea;">Detailed Findings</h2>
-            <table>
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Title</th>
-                        <th>Value</th>
-                        <th>Severity</th>
-                        <th>Weight</th>
-                        <th>Category</th>
-                        <th>Notes & Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    $findingsRows
-                </tbody>
-            </table>
-        </div>
-        
-        <div class="footer">
-            <p><strong>Windows Security Audit Framework v5.1</strong></p>
-            <p>Built by Sandiso Mazibuko | Open Source Project</p>
-        </div>
-    </div>
-    
-    <div id="toast" class="toast"></div>
-    
-    <script>
-        function copyToClipboard(text) {
-            navigator.clipboard.writeText(text).then(function() {
-                showToast('✅ Command copied! Paste in PowerShell (Admin)');
-            }).catch(function(err) {
-                showToast('❌ Failed to copy: ' + err);
-            });
-        }
-        
-        function copyAllFindings() {
-            const reportText = document.querySelector('table').innerText;
-            navigator.clipboard.writeText(reportText).then(function() {
-                showToast('✅ Full report copied to clipboard!');
-            }).catch(function(err) {
-                showToast('❌ Failed to copy: ' + err);
-            });
-        }
-        
-        function openAIAssistant() {
-            const reportPath = window.location.pathname.replace('report.html', 'report_for_ai.txt');
-            showToast('📄 Open report_for_ai.txt in the same folder and paste into ChatGPT/Claude!');
-        }
-        
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.add('show');
-            setTimeout(function() {
-                toast.classList.remove('show');
-            }, 3000);
-        }
-    </script>
-</body>
-</html>
-"@
-    
-    return $html
 }
 
 Export-ModuleMember -Function New-AuditReport
