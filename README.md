@@ -1,114 +1,81 @@
 # 🛡️ Windows Security Audit Framework
 
-> **Version 5.1** - Enterprise-grade security auditing tool for Windows systems
+> **Version 5.4 (Web Edition)** - Enterprise-grade security auditing tool for Windows systems
 
-A comprehensive PowerShell-based security audit framework with GUI that performs deep forensic analysis, threat hunting, and system integrity checks.
+A comprehensive PowerShell-based security audit framework with a modern **Web Dashboard**. It performs deep forensic analysis, threat hunting, and system integrity checks.
 
 ---
 
 ## 🎯 Features
 
-### Core Capabilities
-- ✅ **Deep Process Triage** - Detects process injection, fileless malware, unsigned binaries
-- ✅ **File System Integrity** - Identifies corruption, missing system folders, disk health issues
-- ✅ **System Hardening Checks** - UAC, Secure Boot, TPM verification
-- ✅ **Windows Defender Analysis** - Real-time protection, signature updates, tamper protection
-- ✅ **Firewall Configuration** - Multi-profile firewall status
-- ✅ **Persistence Hunting** - WMI subscriptions, autoruns, scheduled tasks
-- ✅ **Network Analysis** - External connections, DNS configuration
-- ✅ **Forensic Checks** - Browser extensions, HOSTS file, PUPs, recent executables
-- ✅ **Risk Scoring** - Weighted severity scoring with detailed recommendations
+### 🖥️ Modern Web Dashboard
+- **Live Monitoring:** Real-time log streaming via WebSocket-like polling.
+- **One-Click Scanning:** Launch Quick, Standard, Deep, or Forensic scans instantly.
+- **Responsive UI:** Built with Tailwind CSS, works in any modern browser.
+- **Dark Mode:** Automatically adapts to your system theme.
 
-### 🎨 GUI Application
-- Modern, user-friendly interface
-- One-click scanning
-- Real-time progress updates
-- Automatic HTML report generation
-- Multiple scan modes (Quick, Standard, Deep, Forensic)
+### 🔍 Core Capabilities
+- **Deep Process Triage:** Detects process injection, fileless malware, unsigned binaries.
+- **Crypto Miner Detection:** Identifies abnormal CPU usage and mining signatures.
+- **Persistence Hunting:** Scans WMI subscriptions, Registry Autoruns, and Scheduled Tasks.
+- **Forensic Analysis:** Checks browser extensions, HOSTS files, and recent executables.
+- **System Hardening:** Verifies UAC, Secure Boot, TPM, and Windows Defender status.
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-- Windows 10/11
-- PowerShell 5.1 or higher
-- Administrator privileges (recommended)
+- **OS:** Windows 10 or Windows 11
+- **PowerShell:** Version 5.1 or higher
+- **Rights:** Administrator privileges are required for deep scans.
 
 ### Installation
 
 1. **Clone the repository:**
    ```powershell
-   git clone https://github.com/sandisomaz/WindowsSecurityAudit.git
-   cd WindowsSecurityAudit
+   git clone https://github.com/sandisomaz/windows-security-audit.git
+   cd windows-security-audit
    ```
 
-2. **Launch the GUI:**
+2. **Launch the Dashboard:**
    - Double-click `START_HERE.bat`
-   - Or right-click → "Run as Administrator"
+   - (Accept the Admin prompt if asked)
 
-3. **Choose your scan mode and click Start!**
-
----
-
-## 📖 Usage
-
-### GUI Mode (Recommended)
-```batch
-START_HERE.bat
-```
-
-### Command Line
-```powershell
-# Default scan (Deep mode)
-.\SecurityAudit.ps1
-
-# Quick scan (essential checks only)
-.\SecurityAudit.ps1 -Mode Quick
-
-# Full forensic analysis
-.\SecurityAudit.ps1 -Mode Forensic
-```
-
----
+3. **Run a Scan:**
+   - The dashboard will open in your default browser (http://localhost:8080).
+   - Click a scan mode (e.g., Quick Scan).
+   - Wait for the "Open Report" button to appear.
 
 ## 📊 Scan Modes
 
 | Mode | Duration | Description |
 |------|----------|-------------|
-| **⚡ Quick** | 2-3 min | Essential security checks, file system integrity |
-| **📋 Standard** | 5-7 min | Core checks + persistence hunting |
-| **🔍 Deep** | 10-15 min | Comprehensive audit (recommended) |
-| **🔬 Forensic** | 20+ min | Full investigation with verbose logging |
-
----
+| **⚡ Quick** | 2-3 min | Essential checks: Memory, Disk Health, Critical System Files |
+| **📋 Standard** | 5-7 min | Core checks + Persistence Hunting (Autoruns, WMI) |
+| **🔍 Deep** | 10-15 min | Comprehensive audit: Network, Firewall, Defender, Hardening |
+| **🔬 Forensic** | 20+ min | Full investigation: Timeline analysis, Verbose logging |
 
 ## 📁 Project Structure
 
-```
+```text
 WindowsSecurityAudit/
 │
-├── SecurityAudit.ps1              # Main orchestrator script
-├── Config.psd1                    # Configuration file
-├── README.md                      # This file
+├── START_HERE.bat         # Launcher (Starts Backend + Browser)
+├── AuditServer.ps1        # Web Server Backend (API)
+├── index.html             # Web Dashboard Frontend
+├── SecurityAudit.ps1      # Main Scan Engine
+├── Config.psd1            # Configuration Settings
+├── LICENSE                # MIT License
+├── README.md              # Documentation
 │
-├── Modules/
-│   ├── Core.psm1                  # Foundation utilities
-│   ├── ProcessTriage.psm1         # Deep process analysis
-│   ├── FileSystemAudit.psm1       # File system integrity
-│   ├── PersistenceHunting.psm1    # WMI, Autoruns, Tasks
-│   ├── ForensicChecks.psm1        # HOSTS, PUPs, Extensions
-│   ├── SystemHardening.psm1       # UAC, SecureBoot, RDP
-│   ├── DefenderAudit.psm1         # Defender status checks
-│   ├── FirewallAudit.psm1         # Firewall profile checks
-│   ├── NetworkAudit.psm1          # Network connection analysis
-│   ├── ReportGenerator.psm1       # HTML/JSON/CSV reports
+├── Modules/               # Security Logic Modules
+│   ├── Core.psm1
+│   ├── ProcessTriage.psm1
+│   ├── CryptoMinerDetection.psm1
+│   ├── ... (other modules)
 │
 └── Reports/                       # Auto-generated reports
-    └── WinSecAudit_YYYYMMDD_HHMMSS/
-        ├── report.html
-        ├── report.json
-        └── report.csv
 ```
 
 ## 🚀 Quick Start

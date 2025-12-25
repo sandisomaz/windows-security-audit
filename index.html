@@ -11,7 +11,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
     <script>
         tailwind.config = {
-            darkMode: "class",
+            darkMode: "class", // Enables dark mode based on system settings
             theme: {
                 extend: {
                     colors: {
@@ -54,7 +54,7 @@
                 <div class="flex items-center gap-3 mt-1 text-sm text-gray-500 dark:text-gray-400">
                     <span class="flex items-center gap-1"><span class="material-symbols-outlined text-base">computer</span> LOCALHOST</span>
                     <span class="w-1 h-1 rounded-full bg-gray-300 dark:bg-gray-600"></span>
-                    <span id="connectionStatus" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded text-xs font-medium border border-blue-100 dark:border-blue-800">Connected</span>
+                    <span id="connectionStatus" class="bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-2 py-0.5 rounded text-xs font-medium border border-blue-100 dark:border-blue-800">Agent Connected</span>
                 </div>
             </div>
         </div>
@@ -112,7 +112,7 @@
                             <div id="statusSubtext" class="text-xs text-gray-500">Waiting for user command.</div>
                         </div>
                     </div>
-                    <!-- NEW REPORT BUTTON: Hidden by default -->
+                    <!-- Report Button -->
                     <button id="btnOpenReport" onclick="openReport()" class="hidden flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-md">
                         <span class="material-symbols-outlined text-lg">description</span>
                         Open Full Report
@@ -154,14 +154,14 @@
             statusIndicator.classList.remove('bg-gray-400', 'bg-red-500', 'bg-emerald-500');
             statusIndicator.classList.add('bg-emerald-500');
             statusPulse.classList.add('animate-ping', 'bg-emerald-500');
-            btnOpenReport.classList.add('hidden'); // Hide report button while running
+            btnOpenReport.classList.add('hidden');
         } else if (state === 'Completed') {
             statusText.textContent = "Audit Complete";
             statusSubtext.textContent = "Review the logs or open the full report.";
             statusIndicator.classList.remove('bg-emerald-500', 'bg-red-500', 'bg-gray-400');
             statusIndicator.classList.add('bg-blue-500');
             statusPulse.classList.remove('animate-ping', 'bg-emerald-500');
-            btnOpenReport.classList.remove('hidden'); // SHOW report button
+            btnOpenReport.classList.remove('hidden'); // Show Report Button
         } else if (state === 'Stopped') {
             statusText.textContent = "Operation Stopped";
             statusSubtext.textContent = "User aborted the scan.";
@@ -180,7 +180,6 @@
     function addLog(time, type, msg) {
         const div = document.createElement('div');
         div.className = "flex gap-3 text-gray-400 border-b border-gray-50 dark:border-gray-800/50 pb-1 mb-1 log-entry";
-        
         let typeColor = "text-emerald-600";
         if(type === "ERR") typeColor = "text-red-600";
         if(type === "WARN") typeColor = "text-amber-500";
@@ -195,18 +194,15 @@
         logContainer.scrollTop = logContainer.scrollHeight;
     }
 
-    function clearLogs() {
-        logContainer.innerHTML = '';
-    }
+    function clearLogs() { logContainer.innerHTML = ''; }
 
     async function startScan(mode) {
         clearLogs();
         addLog(new Date().toLocaleTimeString(), "SYS", `Initiating ${mode} Scan...`);
         try {
-            await fetch(`/api/start?mode=${mode}`);
-        } catch (e) {
-            addLog(new Date().toLocaleTimeString(), "ERR", "Failed to connect to backend engine.");
-        }
+            await fetch(`/api/start?mode=${mode}`); 
+        } 
+        catch (e) { addLog(new Date().toLocaleTimeString(), "ERR", "Failed to connect to backend engine."); }
     }
 
     async function stopScan() {
@@ -224,17 +220,11 @@
         try {
             const res = await fetch('/api/status');
             const data = await res.json();
-            
             updateStatusUI(data.status);
-            
             if (data.logs && data.logs.length > 0) {
-                data.logs.forEach(log => {
-                    addLog(log.time, log.type, log.message);
-                });
+                data.logs.forEach(log => { addLog(log.time, log.type, log.message); });
             }
-        } catch (e) {
-            // Backend offline
-        }
+        } catch (e) {}
     }, 1000);
 </script>
 </body>

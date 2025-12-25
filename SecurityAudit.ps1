@@ -1,11 +1,8 @@
 <#
 .SYNOPSIS
-    Windows Security Audit Framework - Main Orchestrator (PRODUCTION v5.3)
+    Windows Security Audit Framework - Main Orchestrator (PRODUCTION v5.4)
 .DESCRIPTION
     Coordinates execution of security audit modules with proper error handling
-.NOTES
-    Author: Sandiso Mazibuko
-    Version: 5.3 (Fixed: Module execution, Transcript handling, DateTime bugs)
 #>
 
 [CmdletBinding()]
@@ -26,7 +23,13 @@ $ScriptRoot = $PSScriptRoot
 $ErrorActionPreference = 'Continue'
 
 # Load Core Utilities
-Import-Module (Join-Path $ScriptRoot "Modules\Core.psm1") -Force
+$coreModule = Join-Path $ScriptRoot "Modules\Core.psm1"
+if (Test-Path $coreModule) {
+    Import-Module $coreModule -Force
+} else {
+    Write-Error "CRITICAL: Core module not found at $coreModule"
+    exit 1
+}
 
 # Admin Rights Check
 if (-not (Test-IsAdministrator)) {
@@ -68,14 +71,14 @@ if ($Config.Output.EnableTranscript) {
     }
 }
 
-Write-AuditHeader "Windows Security Audit Framework v5.3"
+Write-AuditHeader "Windows Security Audit Framework v5.4"
 Write-Host "Scan Mode: $Mode" -ForegroundColor Yellow
 Write-Host "Start Time: $(Get-Date)" -ForegroundColor Gray
 #endregion
 
 #region Module Execution
 try {
-    # FIX: Proper module-to-function mapping
+    # Module-to-function mapping
     $moduleExecutionPlan = @{
         'Quick'    = @(
             @{Module='FileSystemAudit'; Function='Invoke-FileSystemAudit'},
@@ -91,17 +94,22 @@ try {
             @{Module='ProcessTriage'; Function='Invoke-ProcessTriage'},
             @{Module='PersistenceHunting'; Function='Invoke-PersistenceHunting'},
             @{Module='DefenderAudit'; Function='Invoke-DefenderAudit'},
+            @{Module='FirewallAudit'; Function='Invoke-FirewallAudit'},
             @{Module='NetworkAudit'; Function='Invoke-NetworkAudit'},
-            @{Module='ForensicChecks'; Function='Invoke-ForensicChecks'}
+            @{Module='ForensicChecks'; Function='Invoke-ForensicChecks'},
+            @{Module='SystemHardening'; Function='Invoke-SystemHardeningAudit'}
         )
         'Forensic' = @(
             @{Module='FileSystemAudit'; Function='Invoke-FileSystemAudit'},
             @{Module='ProcessTriage'; Function='Invoke-ProcessTriage'},
             @{Module='PersistenceHunting'; Function='Invoke-PersistenceHunting'},
             @{Module='DefenderAudit'; Function='Invoke-DefenderAudit'},
+            @{Module='FirewallAudit'; Function='Invoke-FirewallAudit'},
             @{Module='NetworkAudit'; Function='Invoke-NetworkAudit'},
             @{Module='ForensicChecks'; Function='Invoke-ForensicChecks'},
-            @{Module='CryptoMinerDetection'; Function='Invoke-CryptoMinerDetection'}
+            @{Module='SystemHardening'; Function='Invoke-SystemHardeningAudit'},
+            @{Module='CryptoMinerDetection'; Function='Invoke-CryptoMinerDetection'},
+            @{Module='BrowserAudit'; Function='Invoke-BrowserAudit'}
         )
     }
 
@@ -131,8 +139,10 @@ try {
             }
         }
         catch {
-            Write-Warning "Failed to load or execute $moduleFile: $($_.Exception.Message)"
-            Write-AuditLog "Module execution error for $moduleFile : $($_.Exception.Message)" -Level Error
+            # --- FIX FOR THE ERROR IS HERE ---
+            $errMessage = $_.Exception.Message
+            Write-Warning "Failed to load or execute $moduleFile : $errMessage"
+            Write-AuditLog "Module execution error for $moduleFile : $errMessage" -Level Error
         }
     }
 }
@@ -143,20 +153,21 @@ finally {
     #region Report Generation & Cleanup
     Write-AuditHeader "Finalizing Report"
     
-    Import-Module (Join-Path $ScriptRoot "Modules\ReportGenerator.psm1") -Force
-    
-    New-AuditReport -ReportPath $finalReportPath -Config $Config
+    $reportModule = Join-Path $ScriptRoot "Modules\ReportGenerator.psm1"
+    if (Test-Path $reportModule) {
+        Import-Module $reportModule -Force
+        New-AuditReport -ReportPath $finalReportPath -Config $Config
+    } else {
+        Write-Error "Report Generator module missing!"
+    }
     
     Write-AuditHeader "Audit Complete"
     
-    # FIX: Proper transcript stopping
     if ($transcriptStarted) {
         try {
             Stop-Transcript | Out-Null
         }
-        catch {
-            # Silently ignore - transcript may already be stopped
-        }
+        catch {}
     }
     #endregion
 }
