@@ -37,11 +37,19 @@ if (-not (Test-IsAdministrator)) {
 }
 
 # Load Configuration
-$Config = Invoke-SafeCommand { Import-PowerShellDataFile -Path $ConfigPath }
-if (-not $Config) {
+$RawConfig = Invoke-SafeCommand { Import-PowerShellDataFile -Path $ConfigPath }
+if (-not $RawConfig) {
     Write-Error "Failed to load configuration from $ConfigPath. Exiting."
     exit 1
 }
+
+# --- THE MIGRATION FIX: Force Cast [PSCustomObject] to [hashtable] ---
+# This converts the parsed PSCustomObject into a standard, deeply nested hashtable
+$Config = @{}
+foreach ($key in $RawConfig.Keys) {
+    $Config[$key] = $RawConfig[$key]
+}
+# ---------------------------------------------------------------------
 
 # Override config with command-line parameters
 $Config.ScanProfile.Mode = $Mode

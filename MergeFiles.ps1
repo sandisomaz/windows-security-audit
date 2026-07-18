@@ -8,11 +8,11 @@ $extensions = @("*.ps1", "*.psm1", "*.psd1", "*.md", "*.bat", "*.html", "*.json"
 
 Write-Host "Scanning for files in: $rootPath" -ForegroundColor Cyan
 
-# Get all files recursively, excluding the output file itself and .git folder
-$files = Get-ChildItem -Path $rootPath -Recurse -Include $extensions | 
+# Get all files recursively, excluding the output file itself and bloat folders
+$files = Get-ChildItem -Path $rootPath -Recurse -Include $extensions -File | 
     Where-Object { 
         $_.FullName -ne $outputFile -and 
-        $_.FullName -notmatch "\\.git\\" -and
+        $_.FullName -notmatch "\\(\.git|Reports|node_modules|\.venv|bin|obj)\\" -and
         $_.Name -ne "MergeFiles.ps1"
     }
 

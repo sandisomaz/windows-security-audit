@@ -30,11 +30,20 @@ function Invoke-ProcessTriage {
     # 2. Process Security Scan
     $suspiciousProcesses = @()
     
-    # TRUSTED VENDORS (Whitelist) - Suppresses known good apps
+    # TRUSTED VENDORS & SYSTEM PROCESSES - Suppresses known good apps
     $whitelist = @(
         'Lenovo', 'Intel', 'NVIDIA', 'Realtek', 'Proton', 
         'Microsoft', 'Google', 'Brave', 'Mozilla', 'Discord',
-        'Steam', 'Dropbox', 'Zoom', 'Adobe'
+        'Steam', 'Dropbox', 'Zoom', 'Adobe', 'AMD', 'Qualcomm',
+        'System Idle Process', 'Secure System', 'Registry', 'Memory Compression'
+    )
+
+    $systemAllowList = @(
+        'smss.exe', 'csrss.exe', 'wininit.exe', 'services.exe', 'lsass.exe', 
+        'svchost.exe', 'winlogon.exe', 'LsaIso.exe', 'fontdrvhost.exe', 
+        'WUDFHost.exe', 'dwm.exe', 'spoolsv.exe', 'WmiPrvSE.exe', 
+        'unsecapp.exe', 'conhost.exe', 'SearchIndexer.exe', 'Taskmgr.exe',
+        'taskhostw.exe', 'dasHost.exe', 'ctfmon.exe', 'WmiApSrv.exe'
     )
 
     $processes = Get-CimInstance -ClassName Win32_Process | Select-Object Name, ProcessId, ExecutablePath, CommandLine
@@ -42,22 +51,23 @@ function Invoke-ProcessTriage {
     foreach ($proc in $processes) {
         $reasons = @()
         
-        # Skip whitelisted apps (Simple name check)
+        # 1. Skip strictly whitelisted apps and names
         $isSafe = $false
         foreach ($safe in $whitelist) {
-            if ($proc.Name -match $safe -or $proc.ExecutablePath -match $safe) {
+            if ($proc.Name -match $safe -or ($proc.ExecutablePath -and $proc.ExecutablePath -match $safe)) {
                 $isSafe = $true
                 break
             }
         }
         if ($isSafe) { continue }
 
+        # 2. Skip standard system processes
+        if ($proc.Name -in $systemAllowList) { continue }
+
         # RULE 1: Missing Path (Potential Injection)
-        # We only flag this if it's NOT a standard system process
+        # Standard system processes are already filtered out above
         if (-not $proc.ExecutablePath) {
-            if ($proc.Name -notin @('System', 'Registry', 'smss.exe', 'csrss.exe', 'wininit.exe', 'services.exe', 'lsass.exe', 'svchost.exe', 'Memory Compression')) {
-                $reasons += "Hidden Path (Potential Injection)"
-            }
+            $reasons += "Hidden Path (Potential Injection)"
         }
         
         # RULE 2: Suspicious Locations
@@ -68,7 +78,7 @@ function Invoke-ProcessTriage {
         if ($reasons.Count -gt 0) {
             $suspiciousProcesses += [PSCustomObject]@{
                 Name = $proc.Name
-                PID = $proc.PID
+                PID = $proc.ProcessId
                 Reasons = $reasons -join ", "
             }
         }
@@ -76,7 +86,7 @@ function Invoke-ProcessTriage {
     
     if ($suspiciousProcesses.Count -gt 0) {
         Write-AuditResult "Suspicious Processes" "Found $($suspiciousProcesses.Count)" -Status Warn
-        $notes = "Investigate: " + (($suspiciousProcesses | ForEach-Object { $_.Name }) -join ", ")
+        $notes = "Investigate the following processes for potential injection or persistence: " + (($suspiciousProcesses | ForEach-Object { $_.Name }) -join ", ")
         Add-AuditFinding -Id "Proc_Suspicious" -Title "Suspicious Process Activity" -Value "$($suspiciousProcesses.Count) process(es)" -Severity 2 -Notes $notes -Category "Process"
     } else {
         Write-AuditResult "Suspicious Processes" "None detected" -Status Pass

@@ -91,6 +91,13 @@
     Advanced = @{
         VirusTotalAPIKey = "" # Optional: Add your free public API key
         ExcludedProcesses = @()
-        ExcludedPaths = @()
+        ExcludedPaths = @(
+            '\\.venv\\',
+            '\\node_modules\\',
+            '\\target\\',
+            '\\bin\\',
+            '\\obj\\',
+            '\\.git\\'
+        )
     }
 }

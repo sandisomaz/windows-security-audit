@@ -25,14 +25,107 @@ function Invoke-ForensicChecks {
     
     Write-AuditHeader "Forensic Analysis & Artifacts"
     
+    # === HOSTS File ===
+    Test-HOSTS
+    
     # === Browser Extensions ===
     Test-BrowserExtensions
     
+    # === Backdoor Discovery (New) ===
+    Test-BackdoorPaths
+
     # === Potentially Unwanted Programs ===
     Test-PUPs -Config $Config
     
     # === Recent Executables ===
     Test-RecentExecutables -Config $Config
+}
+
+function Test-BackdoorPaths {
+    Write-Host "Scanning for specific backdoor indicators (User Discovery Patterns)..." -ForegroundColor Cyan
+    
+    $suspiciousPaths = @(
+        "$env:LOCALAPPDATA\Updates",
+        "$env:LOCALAPPDATA\Windows",
+        "$env:APPDATA\Updates",
+        "C:\Users\Public\Updates"
+    )
+    
+    $foundBackdoors = @()
+    
+    foreach ($path in $suspiciousPaths) {
+        if (Test-Path $path) {
+            $files = Get-ChildItem -Path $path -File -Recurse -ErrorAction SilentlyContinue
+            if ($files) {
+                Write-Host "  [!] Found suspicious directory: $path" -ForegroundColor Red
+                $foundBackdoors += [PSCustomObject]@{
+                    Path = $path
+                    FileCount = $files.Count
+                    Files = ($files.Name | Select-Object -First 5) -join ", "
+                }
+            }
+        }
+    }
+    
+    # Check for VBScripts in root AppData or Temp (High risk)
+    $scriptPaths = @("$env:LOCALAPPDATA", "$env:APPDATA", "$env:TEMP")
+    $suspiciousScripts = @()
+    foreach ($path in $scriptPaths) {
+        $scripts = Get-ChildItem -Path $path -Filter "*.vbs" -File -ErrorAction SilentlyContinue 
+        $scripts += Get-ChildItem -Path $path -Filter "*.js" -File -ErrorAction SilentlyContinue
+        foreach ($s in $scripts) {
+            # Skip legitimate looking ones if any exist (usually none in root AppData)
+            $suspiciousScripts += $s.FullName
+            Write-Host "  [!] Found suspicious script: $($s.FullName)" -ForegroundColor Yellow
+        }
+    }
+
+    if ($foundBackdoors.Count -gt 0 -or $suspiciousScripts.Count -gt 0) {
+        $notes = "CRITICAL: Detected specific patterns associated with known backdoors.`n`n"
+        if ($foundBackdoors) {
+            $notes += "Suspicious Folders Found:`n"
+            foreach ($b in $foundBackdoors) {
+                $notes += " - $($b.Path) (Contains: $($b.Files)...)`n"
+            }
+        }
+        if ($suspiciousScripts) {
+            $notes += "`nSuspicious Scripts Found:`n - " + ($suspiciousScripts -join "`n - ")
+        }
+
+        Add-AuditFinding `
+            -Id "Forensic_Backdoor" `
+            -Title "Backdoor Indicators Detected" `
+            -Value "Found $($foundBackdoors.Count) folder(s) / $($suspiciousScripts.Count) script(s)" `
+            -Severity 0 `
+            -Weight 25 `
+            -Notes $notes `
+            -Category "Forensics"
+        
+        Write-AuditResult "Backdoor Paths" "DETECTED" -Status Fail
+    } else {
+        Write-AuditResult "Backdoor Paths" "Clean" -Status Pass
+    }
+}
+
+function Test-HOSTS {
+    Write-Host "Auditing HOSTS file..." -ForegroundColor Cyan
+    $hostsPath = "$env:SystemRoot\System32\drivers\etc\hosts"
+    if (Test-Path $hostsPath) {
+        # Get entries that are not comments or empty/whitespace-only
+        $entries = @()
+        $content = Get-Content $hostsPath -ErrorAction SilentlyContinue
+        if ($content) {
+            $entries = $content | Where-Object { $_ -match '^\s*[^#\s]' -and $_ -notmatch 'localhost' }
+        }
+        
+        if ($entries -and ($entries.Count -gt 0 -or ($entries -isnot [array] -and $entries -ne $null))) {
+            Write-AuditResult "HOSTS File" "Found $($entries.Count) custom entry(s)" -Status Warn
+            Add-AuditFinding -Id "Forensic_HOSTS" -Title "HOSTS File Modifications" -Value "$($entries.Count) custom entry(s)" -Severity 2 -Notes "Review custom HOSTS entries for potential hijacking." -Category "Forensics"
+        } else {
+            Write-AuditResult "HOSTS File" "Clean" -Status Pass
+            Add-AuditFinding -Id "Forensic_HOSTS" -Title "HOSTS File" -Value "Clean" -Severity 1 -Category "Forensics"
+        }
+    }
 }
 
 function Test-BrowserExtensions {
@@ -191,7 +284,10 @@ function Test-RecentExecutables {
         $files = Invoke-SafeCommand {
             Get-ChildItem -Path $path -Include @('*.exe', '*.dll', '*.ps1', '*.bat', '*.vbs') `
                 -File -Recurse -ErrorAction SilentlyContinue |
-                Where-Object { $_.LastWriteTime -gt $cutoffDate } |
+                Where-Object { 
+                    $_.LastWriteTime -gt $cutoffDate -and 
+                    $_.FullName -notmatch '\\\.venv\\|\\node_modules\\|\\target\\|\\bin\\|\\obj\\'
+                } |
                 Select-Object -First 20
         }
         

@@ -60,8 +60,10 @@ function Test-WMIPersistence {
         $suspiciousWMI = @()
         
         foreach ($binding in $bindings) {
-            $filterName = ($binding.Filter -split '"')[1]
-            $consumerName = ($binding.Consumer -split '"')[1]
+            # Robust extraction of filter and consumer names from WMI binding string
+            # Format usually: \\.\root\subscription:__EventFilter.Name="Name"
+            $filterName = if ($binding.Filter -match 'Name="([^"]+)"') { $Matches[1] } else { ($binding.Filter -split '"')[1] }
+            $consumerName = if ($binding.Consumer -match 'Name="([^"]+)"') { $Matches[1] } else { ($binding.Consumer -split '"')[1] }
             
             $filter = $filters | Where-Object { $_.Name -eq $filterName }
             $consumer = $consumers | Where-Object { $_.Name -eq $consumerName }
@@ -285,45 +287,73 @@ function Test-ScheduledTasks {
 }
 
 function Test-ThirdPartyServices {
-    Write-Host "Checking for non-Microsoft services..." -ForegroundColor Cyan
+    Write-Host "Checking for non-Microsoft and forged system services..." -ForegroundColor Cyan
     
-    $services = Get-Service |
-        Where-Object { $_.Status -eq 'Running' -and $_.DisplayName -notmatch "Microsoft|Windows" } |
-        Select-Object -First 20
+    $services = Get-CimInstance Win32_Service | 
+                Where-Object { $_.State -eq 'Running' }
     
-    if ($services) {
-        Write-AuditResult "3rd-Party Services" "Found $($services.Count) running service(s)" -Status Info
+    $suspiciousServices = @()
+    $thirdPartyServices = @()
+
+    foreach ($svc in $services) {
+        $path = $svc.PathName
+        $isMicrosoft = $svc.DisplayName -match "Microsoft|Windows" -or $path -match "C:\\Windows\\System32"
         
-        foreach ($svc in $services) {
+        # FORGED SERVICE DETECTION
+        # Check if service name looks like Windows/Microsoft but path is NOT in Windows/System32
+        if ($svc.DisplayName -match "Windows|System|Update|Service" -and $path -notmatch "C:\\Windows") {
+            if ($path -match "AppData|Temp|Users") {
+                $suspiciousServices += $svc
+                Write-Host "  [!] FORGED SERVICE DETECTED: $($svc.DisplayName) -> $path" -ForegroundColor Red
+            }
+        }
+        
+        # 3rd Party Service categorization
+        if (-not $isMicrosoft) {
+            $thirdPartyServices += $svc
+        }
+    }
+    
+    if ($suspiciousServices.Count -gt 0) {
+        $notes = "CRITICAL: Detected forged 'Windows' services running from user directories.`n`n"
+        foreach ($s in $suspiciousServices) {
+            $notes += " - Service: $($s.DisplayName)`n   Path: $($s.PathName)`n"
+        }
+        
+        Add-AuditFinding `
+            -Id "Persist_ForgedService" `
+            -Title "Forged Windows Services Detected" `
+            -Value "Found $($suspiciousServices.Count) forged service(s)" `
+            -Severity 0 `
+            -Weight 25 `
+            -Notes $notes `
+            -Category "Persistence"
+        
+        Write-AuditResult "Forged Services" "DETECTED" -Status Fail
+    }
+
+    if ($thirdPartyServices.Count -gt 0) {
+        Write-AuditResult "3rd-Party Services" "Found $($thirdPartyServices.Count) running service(s)" -Status Info
+        
+        foreach ($svc in $thirdPartyServices | Select-Object -First 10) {
             Write-Host "  - $($svc.DisplayName) [$($svc.Name)]" -ForegroundColor Gray
         }
         
-        $notes = Format-FixRecommendation `
-            -Problem "A review of running third-party services is recommended. While most are legitimate, malware can install itself as a service to gain persistence and elevated privileges." `
-            -ManualSteps @(
-                "Open the Services application (services.msc).",
-                "For each service listed in the audit, check its 'Description' and 'Path to executable'.",
-                "If the path points to a suspicious location (like a user's AppData folder) or the description is missing/generic, it warrants investigation.",
-                "If a service is confirmed to be malicious, set its 'Startup type' to 'Disabled' and then stop it."
-            )
+        $notes = "A review of running third-party services is recommended. While most are legitimate, malware can install itself as a service to gain persistence.`n`n"
+        $notes += "Review these paths for legitimacy:`n"
+        foreach ($svc in $thirdPartyServices | Select-Object -First 10) {
+            $notes += " - $($svc.DisplayName): $($svc.PathName)`n"
+        }
 
         Add-AuditFinding `
             -Id "Persist_Services" `
             -Title "Third-Party Services" `
-            -Value "Found $($services.Count) running service(s)" `
+            -Value "Found $($thirdPartyServices.Count) running service(s)" `
             -Severity 3 `
             -Notes $notes `
             -Category "Persistence"
-    }
-    else {
+    } else {
         Write-AuditResult "3rd-Party Services" "None found" -Status Pass
-        
-        Add-AuditFinding `
-            -Id "Persist_Services" `
-            -Title "Third-Party Services" `
-            -Value "None running" `
-            -Severity 1 `
-            -Category "Persistence"
     }
 }
 
