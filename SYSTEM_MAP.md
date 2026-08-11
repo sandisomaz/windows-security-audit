@@ -1,4 +1,4 @@
-# ðŸ—ºï¸ Windows Security Audit Framework - System Architecture Map
+# Windows Security Audit Framework - System Architecture Map
 
 > **Version 5.5 (Production & Web Edition)**  
 > **Target OS:** Windows 10 / Windows 11 / Windows Server 2016+  
@@ -7,7 +7,7 @@
 
 ---
 
-## ðŸ“ High-Level Architecture Overview
+## High-Level Architecture Overview
 
 The **Windows Security Audit Framework (v5.5)** is an enterprise-grade, zero-binary security auditing and threat-hunting platform. It operates without external compiled binaries, leveraging native Windows Management Instrumentation (WMI), Common Information Model (CIM), Component Object Model (COM), and PowerShell 5.1+ cmdlets.
 
@@ -18,104 +18,104 @@ The framework consists of four primary tiers:
 4. **Analysis & Threat Hunting Tier**: 12 Specialized PowerShell Modules (`Modules/*.psm1`) executing deep system inspection.
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                             PRESENTATION TIER                                    â”‚
-â”‚                                                                                  â”‚
-â”‚   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”‚
-â”‚   â”‚                 Web UI Dashboard (index.html)                            â”‚   â”‚
-â”‚   â”‚   â€¢ Real-Time Console Streamer   â€¢ Live Elapsed Timer                     â”‚   â”‚
-â”‚   â”‚   â€¢ Categorized Log Filters      â€¢ Interactive Scan Controls                 â”‚   â”‚
-â”‚   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                                        â”‚ HTTP Requests (X-Audit-Token)
-                                        â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                              API SERVICE TIER                                    â”‚
-â”‚                                                                                  â”‚
-â”‚   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”   â”‚
-â”‚   â”‚                 AuditServer.ps1 (Port 8080)                              â”‚   â”‚
-â”‚   â”‚   â€¢ System.Net.HttpListener      â€¢ GUID CSRF Session Token Auth              â”‚   â”‚
-â”‚   â”‚   â€¢ Async PowerShell Job Runner  â€¢ Path Traversal Protected File Server      â”‚   â”‚
-â”‚   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜   â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                                        â”‚ Spawns Async PS Job (*>&1 Stream)
-                                        â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                            ORCHESTRATION & CORE TIER                             â”‚
-â”‚                                                                                  â”‚
-â”‚   â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
-â”‚   â”‚ SecurityAudit.ps1      â”‚  â”‚ Config.psd1           â”‚  â”‚ Core.psm1          â”‚ â”‚
-â”‚   â”‚ Orchestration Engine   â”‚â—„â”€â”¤ Scan Profiles & Rules â”œâ”€â–ºâ”‚ Risk & State Engineâ”‚ â”‚
-â”‚   â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                â”‚ Loads & Executes Selected Modules                  â”‚ Collects Findings
-                â–¼                                                    â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                             AUDIT MODULE TIER                                    â”‚
-â”‚                                                                                  â”‚
-â”‚ â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â” â”‚
-â”‚ â”‚ ProcessTriage.psm1   â”‚ â”‚ PersistenceHunting   â”‚ â”‚ CryptoMinerDetection     â”‚ â”‚
-â”‚ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”‚
-â”‚ â”‚ FileSystemAudit      â”‚ â”‚ DefenderAudit        â”‚ â”‚ FirewallAudit            â”‚ â”‚
-â”‚ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”‚
-â”‚ â”‚ NetworkAudit         â”‚ â”‚ SystemHardening      â”‚ â”‚ ForensicChecks           â”‚ â”‚
-â”‚ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤ â”‚
-â”‚ â”‚ BrowserAudit         â”‚ â”‚ ThreatIntelligence   â”‚ â”‚ ReportGenerator          â”‚ â”‚
-â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
-                                        â”‚ System Inspection (CIM / WMI / Registry)
-                                        â–¼
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚                          TARGET SYSTEM ENVIRONMENT                               â”‚
-â”‚  Win32/CIM Provider  â€¢ Registry Autoruns  â€¢ Network Sockets  â€¢ Event Logs        â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
++-----------------------------------------------------------------------------------+
+|                             PRESENTATION TIER                                     |
+|                                                                                   |
+|   +---------------------------------------------------------------------------+   |
+|   |                 Web UI Dashboard (index.html)                             |   |
+|   |   - Real-Time Console Streamer   - Live Elapsed Timer                     |   |
+|   |   - Categorized Log Filters      - Interactive Scan Controls                  |   |
+|   +---------------------------------------------------------------------------+   |
++----------------------------------------+------------------------------------------+
+                                         | HTTP Requests (X-Audit-Token)
+                                         v
++-----------------------------------------------------------------------------------+
+|                              API SERVICE TIER                                     |
+|                                                                                   |
+|   +---------------------------------------------------------------------------+   |
+|   |                 AuditServer.ps1 (Port 8080)                               |   |
+|   |   - System.Net.HttpListener      - GUID CSRF Session Token Auth               |   |
+|   |   - Async PowerShell Job Runner  - Path Traversal Protected File Server       |   |
+|   +---------------------------------------------------------------------------+   |
++----------------------------------------+------------------------------------------+
+                                         | Spawns Async PS Job (*>&1 Stream)
+                                         v
++-----------------------------------------------------------------------------------+
+|                            ORCHESTRATION & CORE TIER                              |
+|                                                                                   |
+|   +-----------------------+  +-----------------------+  +---------------------+   |
+|   | SecurityAudit.ps1     |  | Config.psd1           |  | Core.psm1           |   |
+|   | Orchestration Engine  |<-| Scan Profiles & Rules |->| Risk & State Engine |   |
+|   +-----------+-----------+  +-----------------------+  +----------+----------+   |
++---------------+----------------------------------------------------+--------------+
+                | Loads & Executes Selected Modules                  | Collects Findings
+                v                                                    v
++-----------------------------------------------------------------------------------+
+|                             AUDIT MODULE TIER                                     |
+|                                                                                   |
+| +-----------------------+ +-----------------------+ +---------------------------+ |
+| | ProcessTriage.psm1   | | PersistenceHunting   | | CryptoMinerDetection     | |
+| +-----------------------+ +-----------------------+ +---------------------------+ |
+| | FileSystemAudit      | | DefenderAudit        | | FirewallAudit            | |
+| +-----------------------+ +-----------------------+ +---------------------------+ |
+| | NetworkAudit         | | SystemHardening      | | ForensicChecks           | |
+| +-----------------------+ +-----------------------+ +---------------------------+ |
+| | BrowserAudit         | | ThreatIntelligence   | | ReportGenerator          | |
+| +-----------------------+ +-----------------------+ +---------------------------+ |
++----------------------------------------+------------------------------------------+
+                                         | System Inspection (CIM / WMI / Registry)
+                                         v
++-----------------------------------------------------------------------------------+
+|                          TARGET SYSTEM ENVIRONMENT                                |
+|  Win32/CIM Provider  - Registry Autoruns  - Network Sockets  - Event Logs         |
++-----------------------------------------------------------------------------------+
 ```
 
 ---
 
-## ðŸ”„ Data Flow & Job Orchestration Pipeline
+## Data Flow & Job Orchestration Pipeline
 
 ```
 [User Clicks "Run Scan"]
-       â”‚
-       â–¼
+       |
+       v
 1. Web Dashboard (index.html)
-       â”‚ HTTP GET /api/start?mode=Deep (Header: X-Audit-Token)
-       â–¼
+       | HTTP GET /api/start?mode=Deep (Header: X-Audit-Token)
+       v
 2. API Backend (AuditServer.ps1)
-       â”‚ Validates X-Audit-Token -> Spawns PowerShell Background Job
-       â”‚ Start-Job -ScriptBlock { SecurityAudit.ps1 -Mode Deep *>&1 }
-       â–¼
+       | Validates X-Audit-Token -> Spawns PowerShell Background Job
+       | Start-Job -ScriptBlock { SecurityAudit.ps1 -Mode Deep *>&1 }
+       v
 3. Orchestration Engine (SecurityAudit.ps1)
-       â”‚ Reads Config.psd1 & Loads Modules/Core.psm1
-       â”‚ Initializes Global Findings Array ($script:Findings = @())
-       â”‚ Iterates over configured modules for requested mode
-       â–¼
+       | Reads Config.psd1 & Loads Modules/Core.psm1
+       | Initializes Global Findings Store
+       | Iterates over configured modules for requested mode
+       v
 4. Module Execution Phase (Modules/*.psm1)
-       â”‚ Executes audit functions sequentially
-       â”‚ Performs CIM/WMI/Registry queries and heuristic analysis
-       â”‚ Emits log messages to stdout (*>&1)
-       â”‚ Registers structured findings via Add-AuditFinding
-       â–¼
+       | Executes audit functions sequentially
+       | Performs CIM/WMI/Registry queries and heuristic analysis
+       | Emits log messages to stdout (*>&1)
+       | Registers structured findings via Add-AuditFinding
+       v
 5. Real-Time Log Streaming Loop (index.html <-> AuditServer.ps1)
-       â”‚ Dashboard polls GET /api/status every 1000ms
-       â”‚ Server collects Receive-Job output -> categorizes (ERR, WARN, SYS, INFO)
-       â”‚ Dashboard renders logs into live terminal view
-       â–¼
+       | Dashboard polls GET /api/status every 1000ms
+       | Server collects Receive-Job output -> categorizes (ERR, WARN, SYS, INFO)
+       | Dashboard renders logs into live terminal view
+       v
 6. Finalization & Report Generation (ReportGenerator.psm1)
-       â”‚ Calculates overall Risk Score & Security Percentage via Core.psm1
-       â”‚ Generates modern HTML report (report.html) with inline print CSS
-       â”‚ Generates programmatic JSON report (report.json)
-       â”‚ Writes files to ./Reports/WinSecAudit_<timestamp>/
-       â–¼
+       | Calculates overall Risk Score & Security Percentage via Core.psm1
+       | Generates modern HTML report (report.html) with inline print CSS
+       | Generates programmatic JSON report (report.json)
+       | Writes files to ./Reports/WinSecAudit_<timestamp>/
+       v
 7. Audit Completion
-       â”‚ Job transitions state to 'Completed'
-       â”‚ Dashboard displays "Open Full Audit Report" action button
+       | Job transitions state to 'Completed'
+       | Dashboard displays "Open Full Audit Report" action button
 ```
 
 ---
 
-## ðŸ›¡ï¸ Security & Authentication Model
+## Security & Authentication Model
 
 ### 1. CSRF & Local Session Security Token (`X-Audit-Token`)
 - Upon launching `AuditServer.ps1`, a 128-bit cryptographically secure session token is generated:
@@ -140,7 +140,7 @@ The framework consists of four primary tiers:
 
 ---
 
-## ðŸ“Š Risk Calculation & Severity Scoring Engine
+## Risk Calculation & Severity Scoring Engine
 
 The framework evaluates security findings using a weighted risk scoring algorithm defined in [`Modules/Core.psm1`](./Modules/Core.psm1).
 
@@ -171,7 +171,7 @@ $$\text{Security Score } = 100 - R$$
 
 ---
 
-## ðŸ§© Detailed Component Catalog
+## Detailed Component Catalog
 
 ### 1. Orchestrator Engine (`SecurityAudit.ps1`)
 - **Role**: Command-line entry point & execution manager.
@@ -208,7 +208,7 @@ $$\text{Security Score } = 100 - R$$
 
 ---
 
-## ðŸ”¬ Audit Modules Breakdown
+## Audit Modules Breakdown
 
 | Module | Core Functions | Inspection Scope & Techniques |
 |:---|:---|:---|
@@ -228,18 +228,18 @@ $$\text{Security Score } = 100 - R$$
 
 ---
 
-## ðŸ—ºï¸ Execution Profile Matrix
+## Execution Profile Matrix
 
 | Scan Profile | Est. Time | Included Modules | Target Use Case |
 |:---|:---:|:---|:---|
-| **âš¡ Quick** | 2-3 min | `FileSystemAudit`, `ProcessTriage` | Daily rapid health check of critical memory and file integrity. |
-| **ðŸ“‹ Standard** | 5-7 min | Quick + `PersistenceHunting` | Regular security audit covering persistence mechanisms. |
-| **ðŸ” Deep** *(Default)* | 10-15 min | Standard + `DefenderAudit`, `FirewallAudit`, `NetworkAudit`, `SystemHardening`, `CryptoMinerDetection` | Comprehensive system audit across network, hardening, defender, and miner vectors. |
-| **ðŸ”¬ Forensic** | 20+ min | Deep + `BrowserAudit`, `ThreatIntelligence` + Verbose Logging | Full incident response investigation and forensic timeline audit. |
+| **Quick** | 2-3 min | `FileSystemAudit`, `ProcessTriage` | Daily rapid health check of critical memory and file integrity. |
+| **Standard** | 5-7 min | Quick + `PersistenceHunting` | Regular security audit covering persistence mechanisms. |
+| **Deep** *(Default)* | 10-15 min | Standard + `DefenderAudit`, `FirewallAudit`, `NetworkAudit`, `SystemHardening`, `CryptoMinerDetection` | Comprehensive system audit across network, hardening, defender, and miner vectors. |
+| **Forensic** | 20+ min | Deep + `BrowserAudit`, `ThreatIntelligence` + Verbose Logging | Full incident response investigation and forensic timeline audit. |
 
 ---
 
-## ðŸŒ API Route Specifications
+## API Route Specifications
 
 | Method | Endpoint | Authorization | Description | Response Format |
 |:---:|:---|:---:|:---|:---|
@@ -252,15 +252,15 @@ $$\text{Security Score } = 100 - R$$
 
 ---
 
-## ðŸ§ª Testing & Quality Assurance Architecture
+## Testing & Quality Assurance Architecture
 
 The framework incorporates an automated unit testing suite powered by **Pester** (v4/v5 compatible), invoked via [`Run-Tests.ps1`](./Run-Tests.ps1).
 
 ```
 Tests/
-â”œâ”€â”€ Core.tests.ps1         # Validates state, finding creation, & risk formula
-â”œâ”€â”€ Forensic.tests.ps1     # Validates HOSTS parser & PUP keyword matcher
-â””â”€â”€ Persistence.tests.ps1  # Validates registry autoruns & task scanners
+|-- Core.tests.ps1         # Validates state, finding creation, & risk formula
+|-- Forensic.tests.ps1     # Validates HOSTS parser & PUP keyword matcher
+`-- Persistence.tests.ps1  # Validates registry autoruns & task scanners
 ```
 
 Continuous integration is enforced via **GitHub Actions** ([`.github/workflows/test.yml`](./.github/workflows/test.yml)) on every push and pull request.
