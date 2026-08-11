@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Forensic analysis and artifact detection
@@ -7,6 +8,8 @@
     - Browser extensions (Chrome, Edge)
     - Recently modified executables
     - PUPs (Potentially Unwanted Programs)
+.NOTES
+    Version : 5.5.0
 #>
 
 using module .\Core.psm1
@@ -32,7 +35,7 @@ function Invoke-ForensicChecks {
     Test-BrowserExtensions
     
     # === Backdoor Discovery (New) ===
-    Test-BackdoorPaths
+    Test-BackdoorPaths -Config $Config
 
     # === Potentially Unwanted Programs ===
     Test-PUPs -Config $Config
@@ -42,14 +45,23 @@ function Invoke-ForensicChecks {
 }
 
 function Test-BackdoorPaths {
+    param([hashtable]$Config)
+
     Write-Host "Scanning for specific backdoor indicators (User Discovery Patterns)..." -ForegroundColor Cyan
     
-    $suspiciousPaths = @(
-        "$env:LOCALAPPDATA\Updates",
-        "$env:LOCALAPPDATA\Windows",
-        "$env:APPDATA\Updates",
-        "C:\Users\Public\Updates"
-    )
+    # Resolve backdoor directory list from Config; expand environment variables at runtime
+    $suspiciousPaths = if ($Config.Signatures -and $Config.Signatures.BackdoorDirectories) {
+        $Config.Signatures.BackdoorDirectories | ForEach-Object {
+            $ExecutionContext.InvokeCommand.ExpandString($_)
+        }
+    } else {
+        @(
+            "$env:LOCALAPPDATA\Updates",
+            "$env:LOCALAPPDATA\Windows",
+            "$env:APPDATA\Updates",
+            'C:\Users\Public\Updates'
+        )
+    }
     
     $foundBackdoors = @()
     

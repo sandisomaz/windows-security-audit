@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     System hardening and security configuration checks
@@ -9,6 +10,8 @@
     - BitLocker encryption
     - Windows Update settings
     - Remote Desktop configuration
+.NOTES
+    Version : 5.5.0
 #>
 
 using module .\Core.psm1

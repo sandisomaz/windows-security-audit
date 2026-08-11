@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Advanced threat intelligence and malware pattern detection
@@ -10,9 +11,34 @@
     - Info stealers
     - Botnets
     - Browser hijackers
+.NOTES
+    Version : 5.5.0
 #>
 
-using module .\Core.psm1
+Import-Module $PSScriptRoot\Core.psm1 -ErrorAction SilentlyContinue
+
+function Invoke-VirusTotalCheck {
+    param(
+        [string]$FileHash,
+        [string]$ApiKey
+    )
+    if ([string]::IsNullOrWhiteSpace($ApiKey)) {
+        return $null
+    }
+    
+    try {
+        $response = Invoke-RestMethod -Uri "https://www.virustotal.com/api/v3/files/$FileHash" `
+            -Headers @{ "x-apikey" = $ApiKey } `
+            -TimeoutSec 15 `
+            -ErrorAction Stop
+        
+        Start-Sleep -Seconds 16
+        return $response.data.attributes
+    } catch {
+        Write-AuditLog -Message "VT API error: $_" -Level Error
+        return $null
+    }
+}
 
 function Invoke-ThreatIntelligence {
     <#
@@ -29,13 +55,13 @@ function Invoke-ThreatIntelligence {
     Write-AuditHeader "Advanced Threat Intelligence & Malware Detection"
     
     # Detect ransomware indicators
-    Test-RansomwareIndicators
+    Test-RansomwareIndicators -Config $Config
     
     # Detect keyloggers
-    Test-KeyloggerIndicators
+    Test-KeyloggerIndicators -Config $Config
     
     # Detect RATs (Remote Access Trojans)
-    Test-RATIndicators
+    Test-RATIndicators -Config $Config
     
     # Detect rootkit behaviors
     Test-RootkitIndicators
@@ -44,31 +70,41 @@ function Invoke-ThreatIntelligence {
     Test-InfoStealerIndicators
     
     # Detect botnet activity
-    Test-BotnetIndicators
+    Test-BotnetIndicators -Config $Config
     
     # Check for suspicious DLLs
     Test-SuspiciousDLLs
 }
 
 function Test-RansomwareIndicators {
+    param($Config)
     Write-Host "Scanning for ransomware indicators..." -ForegroundColor Cyan
     
     $indicators = @()
+    $suspiciousFiles = @()
     
     # Check for mass file encryption (many files changed recently)
-    $recentFileChanges = Invoke-SafeCommand {
+    $recentFiles = Invoke-SafeCommand {
         Get-ChildItem -Path "$env:USERPROFILE\Documents" -File -Recurse -ErrorAction SilentlyContinue |
-            Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-30) } |
-            Measure-Object | Select-Object -ExpandProperty Count
+            Where-Object { $_.LastWriteTime -gt (Get-Date).AddMinutes(-30) }
     }
     
-    if ($recentFileChanges -gt 100) {
-        $indicators += "Mass file modification detected ($recentFileChanges files in last 30 min)"
+    if ($recentFiles) {
+        $recentFileChanges = @($recentFiles).Count
+        if ($recentFileChanges -gt 100) {
+            $indicators += "Mass file modification detected ($recentFileChanges files in last 30 min)"
+            $suspiciousFiles += $recentFiles | Select-Object -First 5
+        } else {
+            $suspiciousFiles += $recentFiles
+        }
     }
     
     # Check for ransom note files
-    $ransomNotePatterns = @('README*.txt', 'DECRYPT*.txt', 'HOW_TO_DECRYPT*', 
-                            'YOUR_FILES_ARE_ENCRYPTED*', 'RECOVERY*')
+    $ransomNotePatterns = $Config.Signatures.RansomNotePatterns
+    if ($null -eq $ransomNotePatterns) {
+        $ransomNotePatterns = @('README*.txt', 'DECRYPT*.txt', 'HOW_TO_DECRYPT*', 
+                                'YOUR_FILES_ARE_ENCRYPTED*', 'RECOVERY*')
+    }
     
     foreach ($pattern in $ransomNotePatterns) {
         $found = Invoke-SafeCommand {
@@ -77,13 +113,19 @@ function Test-RansomwareIndicators {
         }
         
         if ($found) {
-            $indicators += "Ransom note detected: $($found.Name)"
+            foreach ($f in $found) {
+                $indicators += "Ransom note detected: $($f.Name)"
+                $suspiciousFiles += $f
+            }
         }
     }
     
     # Check for encrypted file extensions
-    $ransomExtensions = @('.encrypted', '.locked', '.crypto', '.crypt', '.cerber', 
-                          '.locky', '.zepto', '.odin', '.vault', '.xtbl')
+    $ransomExtensions = $Config.Signatures.RansomwareExtensions
+    if ($null -eq $ransomExtensions) {
+        $ransomExtensions = @('.encrypted', '.locked', '.crypto', '.crypt', '.cerber', 
+                              '.locky', '.zepto', '.odin', '.vault', '.xtbl')
+    }
     
     foreach ($ext in $ransomExtensions) {
         $found = Invoke-SafeCommand {
@@ -93,6 +135,7 @@ function Test-RansomwareIndicators {
         
         if ($found) {
             $indicators += "Encrypted files detected with extension: $ext"
+            $suspiciousFiles += $found
         }
     }
     
@@ -105,13 +148,37 @@ function Test-RansomwareIndicators {
         $indicators += "No Volume Shadow Copies found (may have been deleted)"
     }
     
+    # VirusTotal Integration
+    $vtHits = 0
+    $vtApiKey = $Config.Advanced.VirusTotalAPIKey
+    if ($suspiciousFiles.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace($vtApiKey)) {
+        Write-Host "Checking suspicious files with VirusTotal..." -ForegroundColor Cyan
+        foreach ($file in $suspiciousFiles | Select-Object -Unique) {
+            $hash = Get-FileHashSafe -FilePath $file.FullName
+            if ($hash) {
+                $vtResult = Invoke-VirusTotalCheck -FileHash $hash -ApiKey $vtApiKey
+                if ($vtResult -and $vtResult.last_analysis_stats.malicious -gt 0) {
+                    $vtHits++
+                    $indicators += "VT Detection on $($file.Name): $($vtResult.last_analysis_stats.malicious) malicious flags"
+                }
+            }
+        }
+    }
+    
+    $severityLevel = 0
+    
     if ($indicators.Count -gt 0) {
-        Write-AuditResult "Ransomware Indicators" "CRITICAL: $($indicators.Count) indicator(s) detected" -Status Fail
+        if ($vtHits -gt 0) {
+            $severityLevel = 0
+            Write-AuditResult "Ransomware Indicators" "CRITICAL: $($indicators.Count) indicator(s) detected (incl. VT Hits)" -Status Fail
+        } else {
+            Write-AuditResult "Ransomware Indicators" "CRITICAL: $($indicators.Count) indicator(s) detected" -Status Fail
+        }
         
         $notes = Format-FixRecommendation `
             -Problem "RANSOMWARE INDICATORS DETECTED! Your system may be under ransomware attack." `
             -ManualSteps @(
-                "🚨 IMMEDIATE ACTIONS:",
+                " IMMEDIATE ACTIONS:",
                 "1. DISCONNECT FROM INTERNET AND NETWORK IMMEDIATELY",
                 "2. DO NOT pay ransom",
                 "3. DO NOT delete anything",
@@ -133,7 +200,7 @@ function Test-RansomwareIndicators {
             -Id "Threat_Ransomware" `
             -Title "Ransomware Indicators" `
             -Value "CRITICAL: $($indicators.Count) indicators" `
-            -Severity 0 `
+            -Severity $severityLevel `
             -Weight 25 `
             -Notes $notes `
             -Category "Threat"
@@ -150,6 +217,7 @@ function Test-RansomwareIndicators {
 }
 
 function Test-KeyloggerIndicators {
+    param($Config)
     Write-Host "Checking for keylogger indicators..." -ForegroundColor Cyan
     
     $indicators = @()
@@ -175,7 +243,10 @@ function Test-KeyloggerIndicators {
     }
     
     # Check for known keylogger file patterns
-    $keyloggerPatterns = @('keylog*.txt', '*passwords*.txt', 'log*.dat')
+    $keyloggerPatterns = $Config.Signatures.KeyloggerFilePatterns
+    if ($null -eq $keyloggerPatterns) {
+        $keyloggerPatterns = @('keylog*.txt', '*passwords*.txt', 'log*.dat')
+    }
     
     foreach ($pattern in $keyloggerPatterns) {
         $found = Invoke-SafeCommand {
@@ -185,7 +256,9 @@ function Test-KeyloggerIndicators {
         }
         
         if ($found) {
-            $indicators += "Suspicious log file: $($found.Name) ($([math]::Round($found.Length/1KB, 2)) KB)"
+            foreach ($f in $found) {
+                $indicators += "Suspicious log file: $($f.Name) ($([math]::Round($f.Length/1KB, 2)) KB)"
+            }
         }
     }
     
@@ -227,12 +300,17 @@ function Test-KeyloggerIndicators {
 }
 
 function Test-RATIndicators {
+    param($Config)
     Write-Host "Scanning for RAT (Remote Access Trojan) indicators..." -ForegroundColor Cyan
     
     $indicators = @()
     
     # Check for common RAT ports
-    $ratPorts = @(1337, 31337, 4444, 5555, 6666, 7777, 8888, 9999, 12345, 54321)
+    $ratPorts = $Config.Signatures.RatPorts
+    if ($null -eq $ratPorts) {
+        $ratPorts = @(1337, 31337, 4444, 5555, 6666, 7777, 8888, 9999, 12345, 54321)
+    }
+    
     $listening = Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue
     
     foreach ($conn in $listening) {
@@ -246,7 +324,11 @@ function Test-RATIndicators {
     }
     
     # Check for known RAT file names
-    $ratNames = @('anydesk', 'teamviewer', 'remotepc', 'vnc', 'ammyy', 'ultravnc', 'tightvnc')
+    $ratNames = $Config.Signatures.RemoteAccessTools
+    if ($null -eq $ratNames) {
+        $ratNames = @('anydesk', 'teamviewer', 'remotepc', 'vnc', 'ammyy', 'ultravnc', 'tightvnc')
+    }
+    
     $installedSoftware = Get-Process | Where-Object { $_.Path }
     
     foreach ($proc in $installedSoftware) {
@@ -462,6 +544,7 @@ function Test-InfoStealerIndicators {
 }
 
 function Test-BotnetIndicators {
+    param($Config)
     Write-Host "Checking for botnet activity indicators..." -ForegroundColor Cyan
     
     $indicators = @()
@@ -484,7 +567,11 @@ function Test-BotnetIndicators {
     }
     
     # Check for IRC connections (common in old botnets)
-    $ircPorts = @(6667, 6668, 6669, 7000)
+    $ircPorts = $Config.Signatures.IrcPorts
+    if ($null -eq $ircPorts) {
+        $ircPorts = @(6667, 6668, 6669, 7000)
+    }
+    
     foreach ($conn in $connections) {
         if ($conn.RemotePort -in $ircPorts) {
             $proc = Invoke-SafeCommand {
@@ -602,3 +689,4 @@ function Test-SuspiciousDLLs {
 }
 
 Export-ModuleMember -Function Invoke-ThreatIntelligence
+Export-ModuleMember -Function Invoke-VirusTotalCheck

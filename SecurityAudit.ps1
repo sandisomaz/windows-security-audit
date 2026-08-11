@@ -1,8 +1,7 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Windows Security Audit Framework - Main Orchestrator (PRODUCTION v5.4)
-.DESCRIPTION
-    Coordinates execution of security audit modules with proper error handling
+    Windows Security Audit Framework - Main Orchestrator (v5.5 - Fully Linked)
 #>
 
 [CmdletBinding()]
@@ -12,7 +11,7 @@ param(
     [string]$Mode = 'Deep',
 
     [Parameter()]
-    [string]$ConfigPath = (Join-Path $PSScriptRoot "Config.psd1"),
+    [string]$ConfigPath,
 
     [Parameter()]
     [string]$ReportPath
@@ -20,6 +19,10 @@ param(
 
 #region Initialization & Configuration
 $ScriptRoot = $PSScriptRoot
+if (-not $ScriptRoot) { $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Definition }
+if (-not $ScriptRoot) { $ScriptRoot = Get-Location }
+
+if (-not $ConfigPath) { $ConfigPath = Join-Path $ScriptRoot "Config.psd1" }
 $ErrorActionPreference = 'Continue'
 
 # Load Core Utilities
@@ -43,13 +46,10 @@ if (-not $RawConfig) {
     exit 1
 }
 
-# --- THE MIGRATION FIX: Force Cast [PSCustomObject] to [hashtable] ---
-# This converts the parsed PSCustomObject into a standard, deeply nested hashtable
 $Config = @{}
 foreach ($key in $RawConfig.Keys) {
     $Config[$key] = $RawConfig[$key]
 }
-# ---------------------------------------------------------------------
 
 # Override config with command-line parameters
 $Config.ScanProfile.Mode = $Mode
@@ -65,7 +65,6 @@ if (-not (Test-Path $finalReportPath)) { New-Item -Path $finalReportPath -ItemTy
 #endregion
 
 #region Startup
-# Start Transcript if enabled
 $transcriptStarted = $false
 if ($Config.Output.EnableTranscript) {
     $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -79,7 +78,7 @@ if ($Config.Output.EnableTranscript) {
     }
 }
 
-Write-AuditHeader "Windows Security Audit Framework v5.4"
+Write-AuditHeader "Windows Security Audit Framework v$(Get-FrameworkVersion)"
 Write-Host "Scan Mode: $Mode" -ForegroundColor Yellow
 Write-Host "Start Time: $(Get-Date)" -ForegroundColor Gray
 #endregion
@@ -105,7 +104,8 @@ try {
             @{Module='FirewallAudit'; Function='Invoke-FirewallAudit'},
             @{Module='NetworkAudit'; Function='Invoke-NetworkAudit'},
             @{Module='ForensicChecks'; Function='Invoke-ForensicChecks'},
-            @{Module='SystemHardening'; Function='Invoke-SystemHardeningAudit'}
+            @{Module='SystemHardening'; Function='Invoke-SystemHardeningAudit'},
+            @{Module='CryptoMinerDetection'; Function='Invoke-CryptoMinerDetection'}
         )
         'Forensic' = @(
             @{Module='FileSystemAudit'; Function='Invoke-FileSystemAudit'},
@@ -117,7 +117,8 @@ try {
             @{Module='ForensicChecks'; Function='Invoke-ForensicChecks'},
             @{Module='SystemHardening'; Function='Invoke-SystemHardeningAudit'},
             @{Module='CryptoMinerDetection'; Function='Invoke-CryptoMinerDetection'},
-            @{Module='BrowserAudit'; Function='Invoke-BrowserAudit'}
+            @{Module='BrowserAudit'; Function='Invoke-BrowserAudit'},
+            @{Module='ThreatIntelligence'; Function='Invoke-ThreatIntelligence'}
         )
     }
 
@@ -128,26 +129,20 @@ try {
         $modulePath = Join-Path $ScriptRoot "Modules\$moduleFile"
         $functionName = $moduleInfo.Function
         
-        # Check if module file exists
         if (-not (Test-Path $modulePath)) {
             Write-Warning "Module file not found: $modulePath. Skipping."
             continue
         }
         
-        # Try to import module
         try {
             Import-Module $modulePath -Force -ErrorAction Stop
-            
-            # Check if function exists
             if (Get-Command $functionName -ErrorAction SilentlyContinue) {
-                # Execute function
                 & $functionName -Config $Config
             } else {
                 Write-Warning "Function $functionName not found in module $moduleFile."
             }
         }
         catch {
-            # --- FIX FOR THE ERROR IS HERE ---
             $errMessage = $_.Exception.Message
             Write-Warning "Failed to load or execute $moduleFile : $errMessage"
             Write-AuditLog "Module execution error for $moduleFile : $errMessage" -Level Error
@@ -172,10 +167,7 @@ finally {
     Write-AuditHeader "Audit Complete"
     
     if ($transcriptStarted) {
-        try {
-            Stop-Transcript | Out-Null
-        }
-        catch {}
+        try { Stop-Transcript | Out-Null } catch {}
     }
     #endregion
 }

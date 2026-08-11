@@ -1,36 +1,52 @@
-# 🛡️ Windows Security Audit Framework
+# ðŸ›¡ï¸ Windows Security Audit Framework
 
-> **Version 5.4 (Web Edition)** - Enterprise-grade security auditing tool for Windows systems
+[![Pester Security Suite CI](https://github.com/sandisomaz/windows-security-audit/actions/workflows/test.yml/badge.svg)](https://github.com/sandisomaz/windows-security-audit/actions/workflows/test.yml)
+[![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://docs.microsoft.com/en-us/powershell/)
+[![Version 5.5](https://img.shields.io/badge/Version-5.5--Web--Edition-emerald.svg)](#-project-architecture)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-A comprehensive PowerShell-based security audit framework with a modern **Web Dashboard**. It performs deep forensic analysis, threat hunting, and system integrity checks.
+> **Version 5.5 (Production & Web Edition)** â€” Enterprise-grade, zero-binary security auditing framework, threat-hunting engine, and real-time live web dashboard for Windows operating systems.
 
----
-
-## 🎯 Features
-
-### 🖥️ Modern Web Dashboard
-- **Live Monitoring:** Real-time log streaming via WebSocket-like polling.
-- **One-Click Scanning:** Launch Quick, Standard, Deep, or Forensic scans instantly.
-- **Responsive UI:** Built with Tailwind CSS, works in any modern browser.
-- **Dark Mode:** Automatically adapts to your system theme.
-
-### 🔍 Core Capabilities
-- **Deep Process Triage:** Detects process injection, fileless malware, unsigned binaries.
-- **Crypto Miner Detection:** Identifies abnormal CPU usage and mining signatures.
-- **Persistence Hunting:** Scans WMI subscriptions, Registry Autoruns, and Scheduled Tasks.
-- **Forensic Analysis:** Checks browser extensions, HOSTS files, and recent executables.
-- **System Hardening:** Verifies UAC, Secure Boot, TPM, and Windows Defender status.
+The **Windows Security Audit Framework** is a modular PowerShell-based forensic and security audit engine paired with a modern real-time **Web Dashboard**. It performs deep system inspection, persistence hunting, process triage, crypto-miner detection, browser extension auditing, network analysis, and system hardening verification without relying on third-party compiled binaries.
 
 ---
 
-## 🚀 Quick Start
+## ðŸ—ºï¸ System Map & Architecture Quick Link
+
+For a complete architectural breakdown, data flow diagrams, REST API route specifications, and component dependency graphs, please refer to the dedicated **[System Map](SYSTEM_MAP.md)** (`SYSTEM_MAP.md`).
+
+---
+
+## ðŸŽ¯ Key Features
+
+### ðŸ–¥ï¸ Modern Web Dashboard & Hardened API Server
+- **Token-Based CSRF Protection:** Enforces dynamic single-session token verification (`X-Audit-Token` header / URL parameter) generated via 128-bit GUID cryptographically secure tokens.
+- **Live Streamed Auditing:** Real-time log streaming using asynchronous PowerShell background jobs (`*>&1`) and HTTP polling.
+- **Terminal Log Controls:** Live terminal log view with line counting, elapsed scan timer, and log category tab filters (**All**, **Errors**, **Warnings**, **System**).
+- **Directory Traversal Protection:** Hardened static report file server under `/Reports/` preventing path escape.
+- **One-Click HTML & Data Reports:** Automatically generates interactive Tailwind CSS HTML reports, machine-readable JSON, and CSV datasets.
+
+### ðŸ” Core Audit & Threat Hunting Engines
+- **Process Triage:** Detects process injection, hidden parentless processes, high CPU/RAM spikes, execution from temporary/AppData directories, and unsigned binaries.
+- **Persistence Mechanism Hunting:** Audits WMI Event Subscriptions (`__EventFilter`, `__EventConsumer`), Registry Autoruns (`Run`, `RunOnce`, `Winlogon`, `IFEO`), Scheduled Tasks, and Startup Folders.
+- **Crypto-Miner Detection:** Scans for active mining process signatures (`xmrig`, `ethminer`, `cgminer`), stratum protocol network connections, mining wallet keywords, and high CPU utilization.
+- **Forensic Artifact Analysis:** Scans HOSTS file modifications, browser extensions (Chrome, Edge, Brave, Firefox), backdoor path indicators, and Potentially Unwanted Programs (PUPs).
+- **System Hardening Verification:** Audits UAC configuration & slider levels, Secure Boot state, TPM 2.0 readiness, BitLocker encryption status, LSA Protection, Credential Guard, and SMBv1 protocol state.
+- **Network & Firewall Audit:** Evaluates Domain, Private, and Public firewall profiles, listening ports, adapter promiscuity, DNS integrity, and active TCP/UDP connections.
+- **Threat Intelligence & IOC Matching:** SHA256 file hashing, path indicator matching, embedded threat feeds, and optional VirusTotal API integration.
+
+---
+
+## âš¡ Quick Start
 
 ### Prerequisites
-- **OS:** Windows 10 or Windows 11
+- **OS:** Windows 10, Windows 11, or Windows Server 2016+
 - **PowerShell:** Version 5.1 or higher
-- **Rights:** Administrator privileges are required for deep scans.
+- **Privileges:** Administrator privileges recommended for complete CIM/WMI access.
 
-### Installation
+---
+
+### Option 1: Web Dashboard (Recommended)
 
 1. **Clone the repository:**
    ```powershell
@@ -38,250 +54,202 @@ A comprehensive PowerShell-based security audit framework with a modern **Web Da
    cd windows-security-audit
    ```
 
-2. **Launch the Dashboard:**
-   - Double-click `START_HERE.bat`
-   - (Accept the Admin prompt if asked)
-
-3. **Run a Scan:**
-   - The dashboard will open in your default browser (http://localhost:8080).
-   - Click a scan mode (e.g., Quick Scan).
-   - Wait for the "Open Report" button to appear.
-
-## 📊 Scan Modes
-
-| Mode | Duration | Description |
-|------|----------|-------------|
-| **⚡ Quick** | 2-3 min | Essential checks: Memory, Disk Health, Critical System Files |
-| **📋 Standard** | 5-7 min | Core checks + Persistence Hunting (Autoruns, WMI) |
-| **🔍 Deep** | 10-15 min | Comprehensive audit: Network, Firewall, Defender, Hardening |
-| **🔬 Forensic** | 20+ min | Full investigation: Timeline analysis, Verbose logging |
-
-## 📁 Project Structure
-
-```text
-WindowsSecurityAudit/
-│
-├── START_HERE.bat         # Launcher (Starts Backend + Browser)
-├── AuditServer.ps1        # Web Server Backend (API)
-├── index.html             # Web Dashboard Frontend
-├── SecurityAudit.ps1      # Main Scan Engine
-├── Config.psd1            # Configuration Settings
-├── LICENSE                # MIT License
-├── README.md              # Documentation
-│
-├── Modules/               # Security Logic Modules
-│   ├── Core.psm1
-│   ├── ProcessTriage.psm1
-│   ├── CryptoMinerDetection.psm1
-│   ├── ... (other modules)
-│
-└── Reports/                       # Auto-generated reports
-```
-
-## 🚀 Quick Start
-
-### Prerequisites
-- Windows 10/11
-- PowerShell 5.1 or higher
-- Administrator privileges (recommended)
-
-### Installation
-
-1. **Download/Clone the project**
+2. **Launch via Windows Batch Script:**
+   - Double-click **`START_HERE.bat`** (or right-click â†’ *Run as Administrator*).
+   
+   *Or launch manually via PowerShell:*
    ```powershell
-   git clone https://github.com/yourusername/WindowsSecurityAudit.git
-   cd WindowsSecurityAudit
+   powershell -ExecutionPolicy Bypass -File .\AuditServer.ps1 -Port 8080
    ```
 
-2. **Set execution policy** (if needed)
-   ```powershell
-   Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-   ```
+3. **Access the Dashboard:**
+   - Open your web browser to **`http://localhost:8080`**.
+   - Select your desired scan profile and click to initiate streaming audit logs.
 
-3. **Run the audit**
-   ```powershell
-   .\SecurityAudit.ps1
-   ```
+---
 
-## 📖 Usage
+### Option 2: PowerShell Command Line Interface (CLI)
 
-### Basic Usage
+Run directly inside PowerShell (as Administrator):
 
 ```powershell
 # Default scan (Deep mode)
 .\SecurityAudit.ps1
 
-# Quick scan (essential checks only)
+# Quick health check (2-3 mins)
 .\SecurityAudit.ps1 -Mode Quick
 
-# Standard scan (balanced)
+# Standard audit (5-7 mins)
 .\SecurityAudit.ps1 -Mode Standard
 
-# Full forensic analysis
-.\SecurityAudit.ps1 -Mode Forensic
-
-# Custom report location
-.\SecurityAudit.ps1 -ReportPath "C:\SecurityAudits"
-
-# Use custom configuration
-.\SecurityAudit.ps1 -ConfigPath ".\MyConfig.psd1"
+# Full incident investigation (20+ mins)
+.\SecurityAudit.ps1 -Mode Forensic -ReportPath "C:\SecurityAudits"
 ```
 
-### Scan Modes
+---
 
-| Mode | Description | Use Case |
-|------|-------------|----------|
-| **Quick** | Essential security checks, file system integrity | Quick health check |
-| **Standard** | Core + persistence hunting | Regular audits |
-| **Deep** | All checks enabled | Comprehensive audit |
-| **Forensic** | Everything + verbose logging | Incident investigation |
+## ðŸ“Š Scan Execution Modes
 
-## ⚙️ Configuration
+| Mode | Est. Duration | Description | Active Engine Modules |
+|:---|:---:|:---|:---|
+| **âš¡ Quick** | 2-3 min | Essential checks: Memory, File System integrity, Active Processes | `FileSystemAudit`, `ProcessTriage` |
+| **ðŸ“‹ Standard** | 5-7 min | Core checks + Persistence vector hunting | Quick + `PersistenceHunting` |
+| **ðŸ” Deep** *(Recommended)* | 10-15 min | Full security audit: Firewall, Defender, Hardening, Miners | Standard + `DefenderAudit`, `FirewallAudit`, `NetworkAudit`, `SystemHardening`, `CryptoMinerDetection` |
+| **ðŸ”¬ Forensic** | 20+ min | Comprehensive incident investigation: Browser artifacts, IOC matching, Hash calculation | Deep + `BrowserAudit`, `ThreatIntelligence` |
 
-Edit `Config.psd1` to customize the audit:
+---
+
+## ðŸ“ Project Architecture & File Directory Map
+
+```text
+WindowsSecurityAudit/
+â”‚
+â”œâ”€â”€ .github/workflows/
+â”‚   â””â”€â”€ test.yml           # GitHub Actions CI/CD Automated Pester Testing
+â”œâ”€â”€ START_HERE.bat         # One-Click Windows Launcher (Starts Server + Browser)
+â”œâ”€â”€ AuditServer.ps1        # Hardened HTTP Listener API Backend Engine (Port 8080)
+â”œâ”€â”€ index.html             # Web Dashboard Single Page Application (Tailwind CSS)
+â”œâ”€â”€ SecurityAudit.ps1      # Main Orchestration Engine
+â”œâ”€â”€ Config.psd1            # Thresholds, Whitelists & Profile Configuration
+â”œâ”€â”€ Run-Tests.ps1          # Automated Pester Test Runner Script
+â”œâ”€â”€ SYSTEM_MAP.md          # Comprehensive System Architecture & API Documentation
+â”œâ”€â”€ LICENSE                # MIT License
+â”œâ”€â”€ README.md              # Project Documentation
+â”‚
+â”œâ”€â”€ Modules/               # Modular Security & Forensic Engines (.psm1)
+â”‚   â”œâ”€â”€ Core.psm1                  # State Engine, Logging & Weighted Risk Calculator
+â”‚   â”œâ”€â”€ ProcessTriage.psm1         # Process Injection, RAM Spikes & Unsigned Binaries
+â”‚   â”œâ”€â”€ PersistenceHunting.psm1    # WMI Subscriptions, Autoruns & Task Scanner
+â”‚   â”œâ”€â”€ CryptoMinerDetection.psm1  # Mining Signatures, Stratum Ports & CPU Utilization
+â”‚   â”œâ”€â”€ FileSystemAudit.psm1       # Disk Health & System File Integrity
+â”‚   â”œâ”€â”€ ForensicChecks.psm1        # HOSTS File, PUP Keywords & Backdoor Paths
+â”‚   â”œâ”€â”€ DefenderAudit.psm1         # Antivirus Definition Age & Real-Time Protection
+â”‚   â”œâ”€â”€ FirewallAudit.psm1         # Inbound/Outbound Rules & Open Port Auditing
+â”‚   â”œâ”€â”€ NetworkAudit.psm1          # TCP/UDP Connections & DNS Integrity
+â”‚   â”œâ”€â”€ SystemHardening.psm1       # UAC, Secure Boot, TPM 2.0, BitLocker & Credential Guard
+â”‚   â”œâ”€â”€ BrowserAudit.psm1          # Chrome/Edge/Firefox Extension Manifest Scanner
+â”‚   â”œâ”€â”€ ThreatIntelligence.psm1    # SHA256 Hashing, IOC Feeds & VirusTotal Integration
+â”‚   â””â”€â”€ ReportGenerator.psm1       # Multi-Format Report Engine (HTML/JSON/CSV)
+â”‚
+â”œâ”€â”€ Tests/                 # Pester Automated Test Suites (.tests.ps1)
+â”‚   â”œâ”€â”€ Core.tests.ps1             # Tests state management & risk calculations
+â”‚   â”œâ”€â”€ Forensic.tests.ps1         # Tests HOSTS parser & PUP detection
+â”‚   â””â”€â”€ Persistence.tests.ps1      # Tests registry autoruns & scheduled task logic
+â”‚
+â””â”€â”€ tools/                 # Utility Scripts
+    â””â”€â”€ MergeFiles.ps1             # Context Aggregator Script
+```
+
+---
+
+## âš™ï¸ Configuration (`Config.psd1`)
+
+Tailor audit parameters, paths, and thresholds by editing `Config.psd1`:
 
 ```powershell
 @{
     ScanProfile = @{
         Mode = "Deep"
-        EnableProcessTriage = $true
-        EnableFileSystemAudit = $true
-        # ... more options
+        EnableSystemHardening     = $true
+        EnableDefenderAudit        = $true
+        EnableFirewallAudit        = $true
+        EnableProcessTriage        = $true
+        EnablePersistenceHunting   = $true
+        EnableNetworkAudit         = $true
+        EnableForensicChecks       = $true
+        EnableFileSystemAudit      = $true
+        EnableCryptoMinerDetection = $true
     }
     
     Output = @{
-        ReportPath = [Environment]::GetFolderPath("Desktop")
-        GenerateHTML = $true
-        GenerateJSON = $true
-        AutoOpenReport = $true
+        ReportPath       = "Reports"
+        GenerateHTML     = $true
+        GenerateJSON     = $true
+        GenerateCSV      = $false
+        AutoOpenReport   = $true
+        EnableTranscript = $true
     }
     
     Thresholds = @{
-        MaxUpdateAge = 30           # Days
-        RecentExecutablesAge = 7    # Days
-        # ... more thresholds
+        MaxUpdateAge          = 30 # Days
+        RecentExecutablesAge = 7  # Days
+        MaxProcessesToScan   = 100
     }
     
     Detection = @{
-        SuspiciousPaths = @('AppData', 'Temp', ...)
-        PUPKeywords = @('Toolbar', 'Adware', ...)
-        # ... customize detection rules
+        SuspiciousPaths = @('AppData', 'Local\\Temp', 'Users\\Public', 'ProgramData')
+        PUPKeywords     = @('Toolbar', 'Adware', 'SearchProtect', 'Registry Cleaner')
+        # ... additional detection rules
     }
 }
 ```
 
-## 📊 Understanding Reports
+---
 
-### Risk Levels
+## ðŸ“ˆ Understanding Security Reports & Risk Scores
 
-- **LOW** (0-24%): System is in good health
-- **MEDIUM** (25-49%): Some concerns, action recommended
-- **HIGH** (50-100%): Critical issues, immediate action required
+### Risk Scoring Formula
+The framework calculates a weighted risk percentage ($R$) based on identified findings:
+- **FAIL (Critical)**: Full weight penalty (`Weight = 25`)
+- **WARN (Warning)**: Half weight penalty (`Weight = 10 / 2 = 5`)
+- **INFO (Informational)**: Flat 2-point penalty (`Weight = 5`)
+- **PASS (Passed)**: Zero penalty (`Weight = 0`)
 
-### Severity Ratings
+$$\text{Security Score } = 100 - \text{Risk Percentage}$$
 
-- **FAIL** (Red): Critical security issue
-- **WARN** (Yellow): Potential problem
-- **PASS** (Green): Check passed
-- **INFO** (Gray): Informational only
-
-### Report Formats
-
-1. **HTML Report** - Beautiful, interactive web report
-2. **JSON Report** - Machine-readable for automation
-3. **CSV Report** - Spreadsheet-compatible
-
-## 🔧 Development
-
-### Adding New Modules
-
-1. Create module in `Modules/` directory:
-   ```powershell
-   # Modules/MyModule.psm1
-   using module .\Core.psm1
-   
-   function Invoke-MyCheck {
-       param([hashtable]$Config)
-       Write-AuditHeader "My Custom Check"
-       # Your logic here
-       Add-AuditFinding -Id "MyCheck_1" -Title "..." -Value "..." -Severity 1
-   }
-   
-   Export-ModuleMember -Function Invoke-MyCheck
-   ```
-
-2. Import and call in `SecurityAudit.ps1`:
-   ```powershell
-   Import-Module (Join-Path $ScriptRoot "Modules\MyModule.psm1") -Force
-   Invoke-MyCheck -Config $Config
-   ```
-
-### Module Development Guidelines
-
-- Use `Write-AuditHeader` for section headers
-- Use `Write-AuditResult` for console output
-- Use `Add-AuditFinding` to record findings
-- Use `Invoke-SafeCommand` for error-safe execution
-- Follow severity guidelines:
-  - 0 = FAIL (critical issue)
-  - 1 = PASS (check passed)
-  - 2 = WARN (potential issue)
-  - 3 = INFO (informational)
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**"Execution policy" error**
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-**"Not running as Administrator"**
-- Right-click PowerShell → Run as Administrator
-- Or the script will prompt to re-launch
-
-**Reports not generating**
-- Check write permissions to report path
-- Verify `Config.psd1` output settings
-
-**Modules not loading**
-- Ensure all `.psm1` files are in `Modules/` folder
-- Check file paths are correct
-
-## 📝 License
-
-This project is open source and available under the MIT License.
-
-## 🤝 Contributing
-
-Contributions welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-
-## 📧 Support
-
-- **Issues**: Submit via GitHub Issues
-- **Discussions**: Use GitHub Discussions
-- **Security Issues**: Report privately
-
-## 🙏 Acknowledgments
-
-Built with PowerShell and inspired by enterprise security tools like:
-- CIS Benchmarks
-- Microsoft Security Compliance Toolkit
-- NIST Cybersecurity Framework
-
-## 📚 Further Reading
-
-- [PowerShell Security Best Practices](https://docs.microsoft.com/powershell/scripting/security/)
-- [Windows Security Baseline](https://docs.microsoft.com/windows/security/threat-protection/windows-security-baselines)
-- [MITRE ATT&CK Framework](https://attack.mitre.org/)
+### Risk Status Categories
+- ðŸŸ¢ **LOW RISK (0% - 24%)**: System in good standing.
+- ðŸŸ¡ **MEDIUM RISK (25% - 49%)**: Minor misconfigurations, remediation recommended.
+- ðŸ”´ **HIGH RISK (50% - 100%)**: Critical vulnerabilities found, immediate action required.
 
 ---
 
-**Version**: 5.1  
-**Last Updated**: 2025  
+## ðŸŒ API Route Catalog
+
+The native HTTP backend (`AuditServer.ps1`) exposes the following endpoints:
+
+| Endpoint | Method | Security Header Required | Description |
+|:---|:---:|:---:|:---|
+| `/` | `GET` | None | Renders Web Dashboard with injected `X-Audit-Token` |
+| `/api/start?mode=<Mode>` | `GET` | `X-Audit-Token` | Starts background audit job |
+| `/api/stop` | `GET` | `X-Audit-Token` | Cancels running audit job |
+| `/api/status` | `GET` | `X-Audit-Token` | Fetches status, elapsed time & log stream |
+| `/api/open-report` | `GET` | `X-Audit-Token` | Obtains latest HTML report URL |
+| `/Reports/*` | `GET` | `X-Audit-Token` | Serves report files safely |
+
+---
+
+## ðŸ§ª Automated Testing
+
+To run the unit test suite across all modules:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\Run-Tests.ps1
+```
+
+The test runner automatically detects **Pester v5+** or **Pester v4** and executes tests in the `Tests/` directory.
+
+---
+
+## ðŸ› Troubleshooting
+
+| Problem | Cause | Solution |
+|:---|:---|:---|
+| **Script execution blocked** | PowerShell execution policy restricted | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` |
+| **Server port conflict** | Port 8080 already in use | Launch server on a different port: `.\AuditServer.ps1 -Port 9090` |
+| **Incomplete CIM/WMI results** | Non-administrator privileges | Right-click PowerShell or `START_HERE.bat` â†’ **Run as Administrator** |
+| **401 Unauthorized API error** | Missing `X-Audit-Token` | Reload the dashboard (`http://localhost:8080`) to fetch a new session token |
+
+---
+
+## ðŸ¤ Contributing & License
+
+Contributions are welcome! Please open an issue or submit a pull request on GitHub.
+
+This project is licensed under the **[MIT License](LICENSE)**.
+
+---
+
+**Version**: 5.5 Enterprise Edition  
 **Author**: Sandiso Mazibuko  
 **Status**: Active Development

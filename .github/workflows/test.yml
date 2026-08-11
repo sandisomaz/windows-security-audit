@@ -1,0 +1,53 @@
+name: Security Audit Framework CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint:
+    name: PSScriptAnalyzer Linting
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install PSScriptAnalyzer
+        shell: powershell
+        run: |
+          Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser
+
+      - name: Run PSScriptAnalyzer
+        shell: powershell
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path . -Recurse -Settings .\.github\PSScriptAnalyzerSettings.psd1 -ErrorAction SilentlyContinue
+          if ($results) {
+              $results | Format-Table -AutoSize
+              $errors = $results | Where-Object Severity -eq 'Error'
+              if ($errors) {
+                  Write-Error "PSScriptAnalyzer found errors!"
+                  exit 1
+              }
+          } else {
+              Write-Host "PSScriptAnalyzer passed with zero issues!" -ForegroundColor Green
+          }
+
+  test:
+    name: Run Pester Test Suite
+    runs-on: windows-latest
+    needs: lint
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Install Pester Module
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -Force -SkipPublisherCheck -Scope CurrentUser
+
+      - name: Execute Security Audit Test Suite
+        shell: powershell
+        run: |
+          .\Run-Tests.ps1

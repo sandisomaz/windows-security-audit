@@ -1,17 +1,32 @@
-# Reports (don't upload user scan results)
+# ==========================================
+# Windows Security Audit Framework - GitIgnore
+# ==========================================
+
+# Audit Reports & User Scans (Prevent uploading private scan results)
 Reports/
 WinSecAudit_*/
+transcript_*.log
+audit_transcript_*.log
 
-# Windows thumbnail cache
-Thumbs.db
-
-# Temporary files
+# Temporary Files, Aggregates & Backups
 *.tmp
 *.log
 *.bak
+Full_Project_Context.txt
 
-# PowerShell transcript logs
-audit_transcript_*.log
-
-# User-specific config (if any)
+# User-Specific Config Overrides
 *_local.psd1
+
+# OS System Files
+Thumbs.db
+desktop.ini
+.DS_Store
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp

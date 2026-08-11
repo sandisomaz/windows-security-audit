@@ -1,8 +1,11 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Windows Defender and antivirus analysis module (ENHANCED)
 .DESCRIPTION
     Checks with improved recommendations and fix commands
+.NOTES
+    Version : 5.5.0
 #>
 
 using module .\Core.psm1

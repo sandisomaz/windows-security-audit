@@ -1,8 +1,11 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     File system corruption and integrity checking module (ENHANCED)
 .DESCRIPTION
     Detects file system issues with detailed fix recommendations
+.NOTES
+    Version : 5.5.0
 #>
 
 using module .\Core.psm1
@@ -334,7 +337,7 @@ function Test-GibberishFilenames {
             -Id "FS_GibberishFiles" `
             -Title "Corrupted Filenames Detected" `
             -Value "Found $($suspiciousFiles.Count) suspicious filename(s)" `
-            -Severity 2 ` # WARN
+            -Severity 2 `
             -Weight 15 `
             -Notes $notes `
             -Category "FileSystem"

@@ -1,3 +1,4 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Malware persistence mechanism detection module
@@ -8,6 +9,8 @@
     - Scheduled Tasks
     - Services (non-Microsoft)
     - Startup folder items
+.NOTES
+    Version : 5.5.0
 #>
 
 using module .\Core.psm1

@@ -1,194 +1,205 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Core utilities for Windows Security Audit Framework
+    Core utilities for the Windows Security Audit Framework.
 .DESCRIPTION
-    Shared functions, logging, and utilities used across all modules
+    Provides shared state management, risk scoring, finding accumulation,
+    logging helpers, and utility functions consumed by all audit modules.
+    This module MUST be loaded before any other framework module.
+.NOTES
+    Version : 5.5.0
+    Requires: PowerShell 5.1+
 #>
 
-# Global variables
-$script:Findings = @()
+# ---------------------------------------------------------------------------
+# Framework version — single source of truth, referenced by other components
+# ---------------------------------------------------------------------------
+$script:FrameworkVersion = '5.5.0'
+
+# ---------------------------------------------------------------------------
+# Global State
+# ---------------------------------------------------------------------------
+# Use a generic List instead of @() to avoid O(n) array re-allocation on +=
+$script:Findings  = [System.Collections.Generic.List[PSCustomObject]]::new()
 $script:StartTime = Get-Date
 
-# Color constants
+# Console colour palette
 $script:Colors = @{
-    Header = "Cyan"
-    Pass   = "Green"
-    Warn   = "Yellow"
-    Fail   = "Red"
-    Info   = "Gray"
+    Header = 'Cyan'
+    Pass   = 'Green'
+    Warn   = 'Yellow'
+    Fail   = 'Red'
+    Info   = 'Gray'
 }
 
-#region Logging and Output Functions
+# ---------------------------------------------------------------------------
+# Logging & Output
+# ---------------------------------------------------------------------------
 
 function Write-AuditHeader {
-    param([string]$Text)
-    Write-Host ""
+    <#
+    .SYNOPSIS Prints a section divider to the console.
+    #>
+    param([Parameter(Mandatory)][string]$Text)
+    Write-Host ''
     Write-Host "=== $Text ===" -ForegroundColor $script:Colors.Header
 }
 
 function Write-AuditResult {
+    <#
+    .SYNOPSIS Prints a labelled result line with a status prefix.
+    #>
     param(
-        [string]$Label,
-        [string]$Value,
+        [Parameter(Mandatory)][string]$Label,
+        [Parameter(Mandatory)][string]$Value,
         [ValidateSet('Pass', 'Warn', 'Fail', 'Info')]
         [string]$Status = 'Info'
     )
-    
+
+    $color = $script:Colors[$Status]
     $prefix = switch ($Status) {
-        'Pass' { "[OK]  "; $color = $script:Colors.Pass }
-        'Warn' { "[WARN]"; $color = $script:Colors.Warn }
-        'Fail' { "[FAIL]"; $color = $script:Colors.Fail }
-        'Info' { "      "; $color = $script:Colors.Info }
+        'Pass' { '[OK]  ' }
+        'Warn' { '[WARN]' }
+        'Fail' { '[FAIL]' }
+        'Info' { '      ' }
     }
-    
     Write-Host "$prefix $Label : $Value" -ForegroundColor $color
 }
 
 function Write-AuditLog {
+    <#
+    .SYNOPSIS Writes a timestamped diagnostic entry to the verbose stream.
+    #>
     param(
-        [string]$Message,
+        [Parameter(Mandatory)][string]$Message,
         [ValidateSet('Info', 'Warning', 'Error', 'Debug')]
         [string]$Level = 'Info'
     )
-    
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $timestamp  = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     $logMessage = "[$timestamp] [$Level] $Message"
-    
-    # Write to transcript (if active)
     Write-Verbose $logMessage
 }
 
-#endregion
-
-#region Finding Management
+# ---------------------------------------------------------------------------
+# Finding Management
+# ---------------------------------------------------------------------------
 
 function Add-AuditFinding {
     <#
     .SYNOPSIS
-        Adds a finding to the audit results
+        Registers a security finding in the shared findings store.
     .PARAMETER Id
-        Unique identifier for the finding
+        Unique dot-separated identifier (e.g. "Defender.RealTime").
     .PARAMETER Title
-        Human-readable title
+        Short, human-readable title shown in reports.
     .PARAMETER Value
-        The actual value/result
+        The observed value or result string.
     .PARAMETER Severity
-        0=Fail, 1=Pass, 2=Warn, 3=Info
+        0 = FAIL (Critical), 1 = PASS, 2 = WARN, 3 = INFO
     .PARAMETER Weight
-        Importance weight for risk scoring (0-25)
+        Importance weight for risk scoring (0-25). Auto-derived from Severity
+        when omitted.
     .PARAMETER Notes
-        Additional context or recommendations
+        Detailed remediation guidance (plain text, supports "Run: <cmd>").
+    .PARAMETER Category
+        Logical grouping shown in the report (e.g. "Defender", "Firewall").
     #>
     param(
-        [Parameter(Mandatory)]
-        [string]$Id,
-        
-        [Parameter(Mandatory)]
-        [string]$Title,
-        
-        [Parameter(Mandatory)]
-        [string]$Value,
-        
-        [Parameter(Mandatory)]
-        [ValidateSet(0, 1, 2, 3)]
-        [int]$Severity,
-        
-        [int]$Weight = -1,
-        
-        [string]$Notes = "",
-        
-        [string]$Category = "General"
+        [Parameter(Mandatory)][string]$Id,
+        [Parameter(Mandatory)][string]$Title,
+        [Parameter(Mandatory)][string]$Value,
+        [Parameter(Mandatory)][ValidateSet(0, 1, 2, 3)][int]$Severity,
+        [int]$Weight    = -1,
+        [string]$Notes  = '',
+        [string]$Category = 'General'
     )
-    
-    # Auto-calculate weight if not provided
+
+    # Derive default weight from severity when not explicitly supplied
     if ($Weight -eq -1) {
         $Weight = switch ($Severity) {
-            0 { 25 }  # FAIL - Critical
-            2 { 10 }  # WARN - Moderate
-            1 { 0 }   # PASS - No risk
-            3 { 5 }   # INFO - Minor
+            0 { 25 }   # FAIL — Critical
+            2 { 10 }   # WARN — Moderate
+            3 {  5 }   # INFO — Minor
+            1 {  0 }   # PASS — No risk
         }
     }
-    
+
     $finding = [PSCustomObject]@{
-        Id       = $Id
-        Title    = $Title
-        Value    = $Value
-        Severity = $Severity
-        Weight   = $Weight
-        Notes    = $Notes
-        Category = $Category
-        Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+        Id        = $Id
+        Title     = $Title
+        Value     = $Value
+        Severity  = $Severity
+        Weight    = $Weight
+        Notes     = $Notes
+        Category  = $Category
+        Timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
     }
-    
-    $script:Findings += $finding
-    
-    Write-AuditLog "Finding added: $Id - $Title" -Level Info
+
+    $script:Findings.Add($finding)
+    Write-AuditLog "Finding registered: [$Id] $Title" -Level Info
 }
 
 function Get-AuditFindings {
+    <#
+    .SYNOPSIS Returns the full list of registered findings.
+    #>
     return $script:Findings
 }
 
 function Clear-AuditFindings {
-    $script:Findings = @()
+    <#
+    .SYNOPSIS Resets the findings store (used between test runs).
+    #>
+    $script:Findings = [System.Collections.Generic.List[PSCustomObject]]::new()
 }
 
-#endregion
+function Get-FrameworkVersion {
+    <#
+    .SYNOPSIS Returns the current framework version string.
+    #>
+    return $script:FrameworkVersion
+}
 
-#region Utility Functions
+# ---------------------------------------------------------------------------
+# Utility Functions
+# ---------------------------------------------------------------------------
 
 function Invoke-SafeCommand {
     <#
     .SYNOPSIS
-        Safely executes a command and returns result or null on error
+        Executes a scriptblock and returns its output, or $null on any error.
+    .DESCRIPTION
+        Wraps every module-level system query so a single failed WMI/CIM call
+        never aborts the entire audit run.
     #>
     param(
-        [Parameter(Mandatory)]
-        [scriptblock]$ScriptBlock
+        [Parameter(Mandatory)][scriptblock]$ScriptBlock
     )
-    
     try {
         return & $ScriptBlock
     }
     catch {
-        Write-AuditLog "Error executing command: $($_.Exception.Message)" -Level Error
+        Write-AuditLog "Command failed: $($_.Exception.Message)" -Level Warning
         return $null
     }
 }
 
 function Test-IsAdministrator {
     <#
-    .SYNOPSIS
-        Checks if the current session is running as Administrator
+    .SYNOPSIS Returns $true if the current session has Administrator privileges.
     #>
-    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = [Security.Principal.WindowsPrincipal]$identity
     return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 }
 
-function Request-Administrator {
-    <#
-    .SYNOPSIS
-        Re-launches the script with Administrator privileges
-    #>
-    if (-not (Test-IsAdministrator)) {
-        Write-Warning "Administrator privileges required. Re-launching..."
-        
-        $arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSCommandPath`""
-        Start-Process -FilePath "powershell.exe" -ArgumentList $arguments -Verb RunAs
-        exit
-    }
-}
-
 function Get-SystemInfo {
     <#
-    .SYNOPSIS
-        Retrieves basic system information
+    .SYNOPSIS Retrieves basic OS and hardware metadata for the report header.
     #>
-    $os = Get-CimInstance -ClassName Win32_OperatingSystem
-    $cs = Get-CimInstance -ClassName Win32_ComputerSystem
-    
+    $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction Stop
+    $cs = Get-CimInstance -ClassName Win32_ComputerSystem  -ErrorAction Stop
+
     return [PSCustomObject]@{
         ComputerName = $env:COMPUTERNAME
         OSName       = $os.Caption
@@ -202,74 +213,69 @@ function Get-SystemInfo {
 }
 
 function ConvertTo-SeverityText {
+    <#
+    .SYNOPSIS Converts an integer severity code to its label string.
+    #>
     param([int]$Severity)
-    
     switch ($Severity) {
-        0 { return "FAIL" }
-        1 { return "PASS" }
-        2 { return "WARN" }
-        3 { return "INFO" }
-        default { return "UNKNOWN" }
+        0 { return 'FAIL' }
+        1 { return 'PASS' }
+        2 { return 'WARN' }
+        3 { return 'INFO' }
+        default { return 'UNKNOWN' }
     }
 }
 
 function Get-FileHashSafe {
     <#
-    .SYNOPSIS
-        Safely calculates file hash, returns N/A on error
+    .SYNOPSIS Calculates a file hash and returns 'N/A' on any access error.
     #>
     param(
-        [string]$FilePath,
-        [string]$Algorithm = "SHA256"
+        [Parameter(Mandatory)][string]$FilePath,
+        [string]$Algorithm = 'SHA256'
     )
-    
     try {
-        $hash = Get-FileHash -Path $FilePath -Algorithm $Algorithm -ErrorAction Stop
-        return $hash.Hash
+        return (Get-FileHash -Path $FilePath -Algorithm $Algorithm -ErrorAction Stop).Hash
     }
     catch {
-        return "N/A"
+        return 'N/A'
     }
 }
 
-#endregion
-
-#region Fix Recommendations
+# ---------------------------------------------------------------------------
+# Remediation Formatting
+# ---------------------------------------------------------------------------
 
 function Format-FixRecommendation {
     <#
     .SYNOPSIS
-        Formats a fix recommendation with Quick Fix, Manual Fix, and More Info
+        Formats a structured remediation note for inclusion in a finding.
     .PARAMETER Problem
-        Description of the problem
+        One-line description of the security issue.
     .PARAMETER QuickFix
-        PowerShell command to fix (if safe to automate)
+        A single PowerShell command that resolves the issue automatically.
+        The report UI will render a "Copy Fix" button for this value.
     .PARAMETER ManualSteps
-        Array of manual steps
+        Ordered list of manual remediation steps.
     .PARAMETER MoreInfo
-        URL for more information
+        URL to vendor/community documentation.
     .PARAMETER IsSafe
-        Whether the QuickFix is safe to run automatically
+        Set to $true to indicate the QuickFix command is safe to run non-interactively.
     #>
     param(
-        [Parameter(Mandatory)]
-        [string]$Problem,
-        
-        [string]$QuickFix = "",
-        
+        [Parameter(Mandatory)][string]$Problem,
+        [string]$QuickFix    = '',
         [string[]]$ManualSteps = @(),
-        
-        [string]$MoreInfo = "",
-        
-        [bool]$IsSafe = $false
+        [string]$MoreInfo    = '',
+        [bool]$IsSafe        = $false
     )
-    
+
     $recommendation = "$Problem`n`n"
-    
+
     if ($QuickFix) {
         $recommendation += "Run: $QuickFix`n`n"
     }
-    
+
     if ($ManualSteps.Count -gt 0) {
         $recommendation += "MANUAL FIX:`n"
         for ($i = 0; $i -lt $ManualSteps.Count; $i++) {
@@ -277,65 +283,66 @@ function Format-FixRecommendation {
         }
         $recommendation += "`n"
     }
-    
+
     if ($MoreInfo) {
-        $recommendation += "MORE INFO:`n"
-        $recommendation += "   $MoreInfo`n"
+        $recommendation += "MORE INFO:`n   $MoreInfo`n"
     }
-    
+
     return $recommendation.TrimEnd()
 }
 
-#endregion
-
-#region Risk Scoring
+# ---------------------------------------------------------------------------
+# Risk Scoring
+# ---------------------------------------------------------------------------
 
 function Get-RiskScore {
     <#
     .SYNOPSIS
-        Calculates overall risk score from findings
+        Calculates the weighted risk score from all registered findings.
     .DESCRIPTION
-        Returns a percentage (0-100) where higher = more risk
+        Formula:
+          RawScore    = SUM(FAIL weights) + SUM(WARN weights / 2) + (2 * INFO count)
+          MaxPossible = SUM(all weights)
+          RiskPercent = Round((RawScore / MaxPossible) * 100, 2)
+          SecurityScore = 100 - RiskPercent
+
+        Risk Tiers:  LOW < 25% | MEDIUM 25-49% | HIGH >= 50%
     #>
     $findings = Get-AuditFindings
-    
+
     if ($findings.Count -eq 0) {
         return [PSCustomObject]@{
             RawScore      = 0
             MaxPossible   = 0
             RiskPercent   = 0
-            SeverityLabel = "LOW"
+            SeverityLabel = 'LOW'
         }
     }
-    
-    $score = 0
+
+    $score       = 0
     $maxPossible = 0
-    
+
     foreach ($finding in $findings) {
         $maxPossible += $finding.Weight
-        
+
         switch ($finding.Severity) {
-            0 { $score += $finding.Weight }           # FAIL: Full weight
-            2 { $score += ($finding.Weight / 2) }     # WARN: Half weight
-            1 { $score += 0 }                         # PASS: No penalty
-            3 { $score += 2 }                         # INFO: Small fixed penalty
+            0 { $score += $finding.Weight }          # FAIL: full weight
+            2 { $score += ($finding.Weight / 2) }    # WARN: half weight
+            1 { $score += 0 }                        # PASS: no penalty
+            3 { $score += 2 }                        # INFO: fixed 2-point penalty
         }
     }
-    
-    $riskPercent = if ($maxPossible -gt 0) { 
-        [math]::Round(($score / $maxPossible) * 100, 2) 
-    } else { 
-        0 
+
+    $riskPercent = if ($maxPossible -gt 0) {
+        [math]::Round(($score / $maxPossible) * 100, 2)
+    } else {
+        0
     }
-    
-    $severityLabel = if ($riskPercent -ge 50) { 
-        "HIGH" 
-    } elseif ($riskPercent -ge 25) { 
-        "MEDIUM" 
-    } else { 
-        "LOW" 
-    }
-    
+
+    $severityLabel = if ($riskPercent -ge 50) { 'HIGH' }
+                     elseif ($riskPercent -ge 25) { 'MEDIUM' }
+                     else { 'LOW' }
+
     return [PSCustomObject]@{
         RawScore      = $score
         MaxPossible   = $maxPossible
@@ -344,9 +351,9 @@ function Get-RiskScore {
     }
 }
 
-#endregion
-
-# Export module members
+# ---------------------------------------------------------------------------
+# Module Exports
+# ---------------------------------------------------------------------------
 Export-ModuleMember -Function @(
     'Write-AuditHeader',
     'Write-AuditResult',
@@ -354,12 +361,12 @@ Export-ModuleMember -Function @(
     'Add-AuditFinding',
     'Get-AuditFindings',
     'Clear-AuditFindings',
+    'Get-FrameworkVersion',
     'Invoke-SafeCommand',
     'Test-IsAdministrator',
-    'Request-Administrator',
     'Get-SystemInfo',
     'ConvertTo-SeverityText',
     'Get-FileHashSafe',
     'Get-RiskScore',
     'Format-FixRecommendation'
-)
+) -Variable 'FrameworkVersion'

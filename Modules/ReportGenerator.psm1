@@ -1,9 +1,12 @@
+#Requires -Version 5.1
 <#
 .SYNOPSIS
     Advanced Report Generator - v5.5 (Encoding & Print Fix)
 .DESCRIPTION
     Generates a professional, Tailwind CSS-based security report.
     Includes fixes for UTF-8 encoding and PDF printing.
+.NOTES
+    Version : 5.5.0
 #>
 
 function New-AuditReport {
@@ -90,7 +93,7 @@ function New-AuditReport {
         </div>
         <div class="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-md border border-gray-100">
             <span class="material-symbols-outlined text-sm text-gray-400">lock</span>
-            <span class="font-medium text-text-secondary text-xs">Security Audit Framework v5.4</span>
+            <span class="font-medium text-text-secondary text-xs">Security Audit Framework v5.5.0</span>
         </div>
         <div class="flex gap-4 text-gray-400"><span class="material-symbols-outlined text-[20px]">settings</span></div>
     </div>
@@ -247,17 +250,16 @@ function New-AuditReport {
         }
 
         # Safe String with HTML Encoding
-        $title = [System.Web.HttpUtility]::HtmlEncode($f.Title)
-        $value = [System.Web.HttpUtility]::HtmlEncode($f.Value)
-        $cat = [System.Web.HttpUtility]::HtmlEncode($f.Category)
+        $title = [System.Net.WebUtility]::HtmlEncode([string]$f.Title)
+        $value = [System.Net.WebUtility]::HtmlEncode([string]$f.Value)
+        $cat = [System.Net.WebUtility]::HtmlEncode([string]$f.Category)
         
         # Action Button (Copy Fix)
         $actionBtn = ""
         if ($f.Notes -match "Run:\s*(.+?)(\r|\n|$)") {
             $cmd = $matches[1].Trim()
-            # Escape quotes for the JavaScript function call
-            $safeCmd = [System.Web.HttpUtility]::HtmlAttributeEncode($cmd)
-            $actionBtn = "<button onclick='copyToClipboard(`$safeCmd`)' class='inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100 bg-transparent rounded-lg border border-transparent transition-all'><span class='material-symbols-outlined text-[16px]'>content_copy</span> Copy Fix</button>"
+            $escapedCmd = $cmd -replace '"', '&quot;'
+            $actionBtn = "<button class='copy-fix-btn inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-gray-600 hover:text-gray-900 hover:bg-gray-100 bg-transparent rounded-lg border border-transparent transition-all' data-cmd=`"$escapedCmd`"><span class='material-symbols-outlined text-[16px]'>content_copy</span> Copy Fix</button>"
         }
 
         $rows += @"
@@ -283,11 +285,18 @@ function New-AuditReport {
     </main>
 </div>
 <script>
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text).then(() => {
-            alert("Command copied to clipboard!");
+document.addEventListener('click', function(e) {
+    const btn = e.target.closest('.copy-fix-btn');
+    if (!btn) return;
+    const cmd = btn.getAttribute('data-cmd');
+    if (cmd && navigator.clipboard) {
+        navigator.clipboard.writeText(cmd).then(() => {
+            const orig = btn.textContent;
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = orig; }, 1500);
         });
     }
+});
 </script>
 </body>
 </html>
