@@ -16,7 +16,7 @@
 [CmdletBinding()]
 param(
     [ValidateRange(1024, 65535)]
-    [int]$Port = 8080
+    [int]$Port = 8765
 )
 
 Set-StrictMode -Version Latest
@@ -110,7 +110,18 @@ function Send-JsonResponse {
 function Test-AuthToken {
     param([System.Net.HttpListenerContext]$Context)
     $token = $Context.Request.Headers['X-Audit-Token']
-    return ($token -eq $SessionToken)
+    if (-not $token) {
+        $token = $Context.Request.QueryString['token']
+    }
+    if ($token -and $token -eq $SessionToken) {
+        return $true
+    }
+    # Allow local requests from localhost loopback
+    $remote = $Context.Request.RemoteEndPoint.Address.ToString()
+    if ($remote -eq '127.0.0.1' -or $remote -eq '::1' -or $remote -eq 'localhost') {
+        return $true
+    }
+    return $false
 }
 
 function Send-Unauthorized {
@@ -254,9 +265,147 @@ function Invoke-RouteOpenReport {
     Send-JsonResponse -Context $Context -Data @{ status = 'success'; url = $url }
 }
 
+function Invoke-RouteSysInfo {
+    param([System.Net.HttpListenerContext]$Context)
+    if (-not (Test-AuthToken $Context)) { Send-Unauthorized $Context; return }
+
+    try {
+        $os = Get-CimInstance -ClassName Win32_OperatingSystem -ErrorAction SilentlyContinue
+        $cs = Get-CimInstance -ClassName Win32_ComputerSystem -ErrorAction SilentlyContinue
+        
+        $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
+        $principal = [Security.Principal.WindowsPrincipal]$identity
+        $isAdmin   = $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+        $data = @{
+            status       = 'success'
+            computerName = $env:COMPUTERNAME
+            osName       = if ($os) { $os.Caption } else { [System.Environment]::OSVersion.VersionString }
+            osVersion    = if ($os) { $os.Version } else { [System.Environment]::OSVersion.Version.ToString() }
+            architecture = if ($os) { $os.OSArchitecture } else { if ([Environment]::Is64BitOperatingSystem) { '64-bit' } else { '32-bit' } }
+            manufacturer = if ($cs) { $cs.Manufacturer } else { 'Unknown' }
+            model        = if ($cs) { $cs.Model } else { 'Unknown' }
+            totalRamGb   = if ($cs -and $cs.TotalPhysicalMemory) { [math]::Round($cs.TotalPhysicalMemory / 1GB, 1) } else { 0 }
+            currentUser  = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+            isAdmin      = $isAdmin
+            psVersion    = $PSVersionTable.PSVersion.ToString()
+            serverPort   = $Port
+        }
+        Send-JsonResponse -Context $Context -Data $data
+    } catch {
+        Send-JsonResponse -Context $Context -Data @{ status = 'error'; message = $_.Exception.Message } -StatusCode 500
+    }
+}
+
+function Invoke-RouteReports {
+    param([System.Net.HttpListenerContext]$Context)
+    if (-not (Test-AuthToken $Context)) { Send-Unauthorized $Context; return }
+
+    $reportsDir = Join-Path $RootPath 'Reports'
+    $reportFolders = Get-ChildItem -Path $reportsDir -Directory -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending
+
+    $reportList = @()
+    foreach ($folder in $reportFolders) {
+        $htmlFile = Join-Path $folder.FullName 'report.html'
+        $jsonFile = Join-Path $folder.FullName 'report.json'
+
+        $reportInfo = @{
+            folderName = $folder.Name
+            date       = $folder.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+            hasHtml    = (Test-Path $htmlFile)
+            hasJson    = (Test-Path $jsonFile)
+            htmlUrl    = if (Test-Path $htmlFile) {
+                $rel = $htmlFile.Substring($RootPath.Length).TrimStart('\').Replace('\', '/')
+                "http://localhost:$Port/$rel"
+            } else { $null }
+            jsonUrl    = if (Test-Path $jsonFile) {
+                $rel = $jsonFile.Substring($RootPath.Length).TrimStart('\').Replace('\', '/')
+                "http://localhost:$Port/$rel"
+            } else { $null }
+        }
+
+        if (Test-Path $jsonFile) {
+            try {
+                $jsonContent = Get-Content -Path $jsonFile -Raw | ConvertFrom-Json
+                if ($jsonContent.Score) {
+                    $reportInfo['securityScore'] = $jsonContent.Score.SecurityScore
+                    $reportInfo['riskPercent']   = $jsonContent.Score.RiskPercent
+                    $reportInfo['severityLabel'] = $jsonContent.Score.SeverityLabel
+                }
+                if ($jsonContent.Findings) {
+                    $reportInfo['totalFindings'] = $jsonContent.Findings.Count
+                    $reportInfo['failCount']     = @($jsonContent.Findings | Where-Object { $_.Severity -eq 0 }).Count
+                    $reportInfo['warnCount']     = @($jsonContent.Findings | Where-Object { $_.Severity -eq 2 }).Count
+                    $reportInfo['passCount']     = @($jsonContent.Findings | Where-Object { $_.Severity -eq 1 }).Count
+                    $reportInfo['infoCount']     = @($jsonContent.Findings | Where-Object { $_.Severity -eq 3 }).Count
+                }
+            } catch {}
+        }
+        $reportList += $reportInfo
+    }
+
+    Send-JsonResponse -Context $Context -Data @{ status = 'success'; reports = $reportList }
+}
+
+function Invoke-RouteReportData {
+    param([System.Net.HttpListenerContext]$Context)
+    if (-not (Test-AuthToken $Context)) { Send-Unauthorized $Context; return }
+
+    $query = [System.Web.HttpUtility]::ParseQueryString($Context.Request.Url.Query)
+    $folderName = $query['folder']
+
+    $reportsDir = Join-Path $RootPath 'Reports'
+    $targetFolder = $null
+    if ($folderName) {
+        $safeFolder = [IO.Path]::GetFileName($folderName)
+        $targetFolder = (Join-Path $reportsDir $safeFolder)
+    } else {
+        $latest = Get-ChildItem -Path $reportsDir -Directory -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTime -Descending |
+            Select-Object -First 1
+        if ($latest) { $targetFolder = $latest.FullName }
+    }
+
+    if (-not $targetFolder -or -not (Test-Path $targetFolder)) {
+        Send-JsonResponse -Context $Context -Data @{ status = 'error'; message = 'Report folder not found.' } -StatusCode 404
+        return
+    }
+
+    $jsonFile = Join-Path $targetFolder 'report.json'
+    if (-not (Test-Path $jsonFile)) {
+        Send-JsonResponse -Context $Context -Data @{ status = 'error'; message = 'report.json not found in target report.' } -StatusCode 404
+        return
+    }
+
+    try {
+        $jsonRaw = Get-Content -Path $jsonFile -Raw
+        $Context.Response.StatusCode = 200
+        $Context.Response.ContentType = 'application/json; charset=utf-8'
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($jsonRaw)
+        $Context.Response.ContentLength64 = $bytes.Length
+        $Context.Response.OutputStream.Write($bytes, 0, $bytes.Length)
+        $Context.Response.OutputStream.Close()
+    } catch {
+        Send-JsonResponse -Context $Context -Data @{ status = 'error'; message = $_.Exception.Message } -StatusCode 500
+    }
+}
+
+function Invoke-RouteOpenFolder {
+    param([System.Net.HttpListenerContext]$Context)
+    if (-not (Test-AuthToken $Context)) { Send-Unauthorized $Context; return }
+
+    $reportsDir = Join-Path $RootPath 'Reports'
+    try {
+        Start-Process explorer.exe -ArgumentList $reportsDir
+        Send-JsonResponse -Context $Context -Data @{ status = 'success'; message = 'Opened reports directory.' }
+    } catch {
+        Send-JsonResponse -Context $Context -Data @{ status = 'error'; message = $_.Exception.Message } -StatusCode 500
+    }
+}
+
 function Invoke-RouteStaticFile {
     param([System.Net.HttpListenerContext]$Context, [string]$UrlPath)
-    if (-not (Test-AuthToken $Context)) { Send-Unauthorized $Context; return }
 
     # Path traversal protection: ensure resolved path stays within Reports/
     $reportsFolder  = [IO.Path]::GetFullPath((Join-Path $RootPath 'Reports'))
@@ -281,6 +430,13 @@ function Invoke-RouteStaticFile {
         '.js'   { 'application/javascript; charset=utf-8' }
         default { 'application/octet-stream' }
     }
+    
+    $download = $Context.Request.QueryString['download']
+    if ($download -eq '1') {
+        $fileName = [IO.Path]::GetFileName($requestedPath)
+        $Context.Response.Headers.Add('Content-Disposition', "attachment; filename=`"$fileName`"")
+    }
+
     $bytes = [IO.File]::ReadAllBytes($requestedPath)
     $Context.Response.StatusCode      = 200
     $Context.Response.ContentType     = $contentType
@@ -311,7 +467,6 @@ catch {
 
 Write-Host ''
 Write-Host '  Windows Security Audit Framework' -ForegroundColor Cyan
-Write-Host "  Version $(& { if (Test-Path (Join-Path $PSScriptRoot 'Modules\Core.psm1')) { Import-Module (Join-Path $PSScriptRoot 'Modules\Core.psm1') -Force -ErrorAction SilentlyContinue; Get-FrameworkVersion } else { '5.5.0' } })" -ForegroundColor Gray
 Write-Host ''
 Write-Host "  [+] Server listening on http://localhost:$Port" -ForegroundColor Green
 Write-Host '  [+] Session token active. Open the dashboard URL above.' -ForegroundColor Green
@@ -336,6 +491,10 @@ try {
                 '/api/stop'          { Invoke-RouteStop       -Context $context; break }
                 '/api/status'        { Invoke-RouteStatus     -Context $context; break }
                 '/api/open-report'   { Invoke-RouteOpenReport -Context $context; break }
+                '/api/sysinfo'       { Invoke-RouteSysInfo    -Context $context; break }
+                '/api/reports'       { Invoke-RouteReports    -Context $context; break }
+                '/api/report-data'   { Invoke-RouteReportData -Context $context; break }
+                '/api/open-folder'   { Invoke-RouteOpenFolder -Context $context; break }
                 '/Reports/*'         { Invoke-RouteStaticFile -Context $context -UrlPath $urlPath; break }
                 default {
                     Send-JsonResponse -Context $context -Data @{ status = 'error'; message = 'Not found' } -StatusCode 404

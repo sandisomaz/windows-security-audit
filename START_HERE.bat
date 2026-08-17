@@ -2,12 +2,12 @@
 title Windows Security Audit Framework - Server
 color 0B
 
-set PORT=8080
+set PORT=8765
 if not "%~1"=="" set PORT=%~1
 
 echo.
 echo ====================================================================
-echo   Windows Security Audit Framework v5.5.0 (Web Edition)
+echo   Windows Security Audit Framework
 echo   Initializing Backend Engine...
 echo ====================================================================
 echo.
@@ -22,16 +22,24 @@ if %ERRORLEVEL% NEQ 0 (
 
 echo Starting Audit Server on Port %PORT%...
 echo.
-echo NOTE: Do not close this window while using the dashboard.
+echo NOTE: Keep the background server window open while using the dashboard.
 echo.
 
 REM Launch the backend server with RemoteSigned policy
 start "Audit Backend" powershell.exe -ExecutionPolicy RemoteSigned -Command "Unblock-File '%~dp0AuditServer.ps1'; & '%~dp0AuditServer.ps1' -Port %PORT%"
 
 REM Wait a moment for server to spin up
-timeout /t 3 >nul
+timeout /t 2 >nul
 
-REM Open the UI in default browser
-start http://localhost:%PORT%
+REM Open the UI in Chrome if available, otherwise default browser
+if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
+    start "" "%ProgramFiles%\Google\Chrome\Application\chrome.exe" "http://localhost:%PORT%"
+) else if exist "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" (
+    start "" "%ProgramFiles(x86)%\Google\Chrome\Application\chrome.exe" "http://localhost:%PORT%"
+) else if exist "%LocalAppData%\Google\Chrome\Application\chrome.exe" (
+    start "" "%LocalAppData%\Google\Chrome\Application\chrome.exe" "http://localhost:%PORT%"
+) else (
+    start http://localhost:%PORT%
+)
 
 exit /b 0

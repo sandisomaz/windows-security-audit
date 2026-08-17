@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en" class="light">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-    <title>Windows Security Audit - Production Dashboard v5.5</title>
+    <title>Windows Security Audit</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com"/>
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin=""/>
@@ -11,26 +11,22 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <script>
         tailwind.config = {
-            darkMode: "class",
             theme: {
                 extend: {
                     colors: {
-                        brand: {
-                            50: '#ecfdf5',
-                            100: '#d1fae5',
-                            500: '#10b981',
-                            600: '#059669',
-                            700: '#047857',
-                            900: '#064e3b',
-                        },
-                        darkbg: "#0b0f19",
-                        darksurface: "#111827",
-                        darkcard: "#1f2937",
-                        darkborder: "#374151"
+                        primary: "#10b981",
+                        "primary-dark": "#059669",
+                        danger: "#ef4444",
+                        warning: "#f59e0b",
+                        "bg-body": "#f8fafc",
+                        "bg-surface": "#ffffff",
+                        "border-subtle": "#e2e8f0",
+                        "text-main": "#0f172a",
+                        "text-secondary": "#64748b"
                     },
                     fontFamily: {
-                        sans: ["Inter", "sans-serif"],
-                        mono: ["JetBrains Mono", "monospace"],
+                        sans: ["Inter", "system-ui", "-apple-system", "sans-serif"],
+                        mono: ["JetBrains Mono", "Consolas", "monospace"],
                     },
                 },
             },
@@ -39,44 +35,73 @@
     <style>
         .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #374151; border-radius: 4px; }
-        .log-entry { animation: fadeIn 0.2s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-        .glass-card { background: rgba(17, 24, 39, 0.85); backdrop-filter: blur(12px); }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background-color: #94a3b8; }
+        
+        .terminal-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
+        .terminal-scrollbar::-webkit-scrollbar-track { background: #0f172a; }
+        .terminal-scrollbar::-webkit-scrollbar-thumb { background-color: #334155; border-radius: 4px; }
+        
+        .log-entry { animation: fadeIn 0.15s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .progress-bar-stripes {
+            background-image: linear-gradient(45deg, rgba(255, 255, 255, 0.2) 25%, transparent 25%, transparent 50%, rgba(255, 255, 255, 0.2) 50%, rgba(255, 255, 255, 0.2) 75%, transparent 75%, transparent);
+            background-size: 1rem 1rem;
+            animation: progress-stripes 1s linear infinite;
+        }
+        @keyframes progress-stripes {
+            from { background-position: 1rem 0; }
+            to { background-position: 0 0; }
+        }
     </style>
 </head>
-<body class="bg-darkbg text-gray-100 min-h-screen flex flex-col font-sans antialiased selection:bg-brand-500 selection:text-white">
+<body class="bg-bg-body text-text-main min-h-screen flex flex-col font-sans antialiased selection:bg-emerald-500 selection:text-white">
 
     <!-- Top Navigation Header -->
-    <header class="border-b border-gray-800 bg-darksurface/90 sticky top-0 z-50 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-            <div class="flex items-center gap-4">
-                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-brand-600 to-emerald-400 flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+    <header class="border-b border-border-subtle bg-white/95 sticky top-0 z-40 backdrop-blur-md shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            
+            <!-- Branding -->
+            <div class="flex items-center gap-3.5">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 flex items-center justify-center text-white shadow-md shadow-emerald-500/20">
                     <span class="material-symbols-outlined text-2xl">shield_locked</span>
                 </div>
                 <div>
                     <div class="flex items-center gap-2">
-                        <h1 class="font-bold text-lg text-white tracking-tight">Windows Security Audit</h1>
-                        <span class="text-[10px] font-semibold tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">v5.5 Enterprise</span>
+                        <h1 class="font-bold text-base sm:text-lg text-slate-900 tracking-tight">Windows Security Audit</h1>
                     </div>
-                    <p class="text-xs text-gray-400">Forensic Threat Hunting & System Integrity Engine</p>
+                    <p class="text-xs text-text-secondary hidden sm:block">Forensic Threat Hunting & System Integrity Engine</p>
                 </div>
             </div>
 
-            <div class="flex items-center gap-4">
-                <!-- System Status Pill -->
-                <div class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gray-800/80 border border-gray-700 text-xs">
-                    <span id="agentPulse" class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-                    <span class="text-gray-300 font-medium">Local Agent</span>
-                    <span class="text-gray-500">|</span>
-                    <span class="text-gray-400 font-mono">Port 8080</span>
+            <!-- Host Telemetry HUD Chips -->
+            <div class="flex items-center gap-2 sm:gap-3 text-xs">
+                <!-- Hostname & OS -->
+                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200">
+                    <span class="material-symbols-outlined text-slate-400 text-sm">computer</span>
+                    <span id="hudHost" class="font-mono text-slate-800 font-medium">Checking...</span>
+                    <span class="text-slate-300">|</span>
+                    <span id="hudOS" class="text-slate-500 text-[11px] truncate max-w-[140px]">Windows</span>
                 </div>
-                
-                <!-- Elapsed Timer Pill -->
-                <div id="timerContainer" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-950/40 border border-emerald-800/50 text-xs font-mono text-emerald-400">
+
+                <!-- Admin Status Badge -->
+                <div id="hudAdminBadge" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-50 border border-slate-200 font-mono">
+                    <span id="hudAdminDot" class="w-2 h-2 rounded-full bg-slate-400"></span>
+                    <span id="hudAdminText" class="text-slate-700 font-medium">USER</span>
+                </div>
+
+                <!-- Active Elapsed Timer -->
+                <div id="timerContainer" class="hidden flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200 font-mono text-emerald-700">
                     <span class="material-symbols-outlined text-sm animate-spin">timer</span>
                     <span id="elapsedTimer">00:00</span>
                 </div>
+
+                <!-- Reports Folder Button -->
+                <button onclick="openReportsFolder()" title="Open Reports Folder in Windows Explorer" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 hover:text-slate-900 transition-colors shadow-sm">
+                    <span class="material-symbols-outlined text-base text-slate-500">folder_open</span>
+                    <span class="text-xs font-medium">Reports Folder</span>
+                </button>
             </div>
         </div>
     </header>
@@ -84,170 +109,471 @@
     <!-- Main Workspace Container -->
     <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
 
-        <!-- Action Control Grid -->
-        <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-            <!-- Quick Scan -->
-            <button onclick="startScan('Quick')" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-darksurface border border-gray-800 hover:border-emerald-500/50 hover:bg-gray-800/60 transition-all duration-200 text-left shadow-lg">
+        <!-- Scan Mode Selection Section -->
+        <section>
+            <div class="flex items-center justify-between mb-3">
                 <div>
-                    <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-outlined text-2xl">bolt</span>
-                    </div>
-                    <h3 class="font-bold text-white text-base">Quick Scan</h3>
-                    <p class="text-xs text-gray-400 mt-1">Memory, Critical Files & Active Processes</p>
+                    <h2 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Audit Profile</h2>
                 </div>
-                <div class="mt-4 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                    <span>Est: 2-3 mins</span>
-                    <span class="text-emerald-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center">Run <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
-                </div>
-            </button>
+                <div class="text-xs text-slate-400 font-mono">12 Native Modules</div>
+            </div>
 
-            <!-- Standard Scan -->
-            <button onclick="startScan('Standard')" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-darksurface border border-gray-800 hover:border-blue-500/50 hover:bg-gray-800/60 transition-all duration-200 text-left shadow-lg">
-                <div>
-                    <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-outlined text-2xl">troubleshoot</span>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                
+                <!-- Quick Scan (Emerald) -->
+                <button onclick="startScan('Quick')" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-white border border-slate-200 hover:border-emerald-500/80 hover:shadow-lg transition-all duration-200 text-left shadow-sm">
+                    <div>
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-2xl">bolt</span>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-base">Quick Scan</h3>
+                        <p class="text-xs text-slate-500 mt-1">Memory, Critical Files & Active Processes</p>
+                        
+                        <div class="mt-3 flex flex-wrap gap-1">
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">ProcessTriage</span>
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">FileSystemAudit</span>
+                        </div>
                     </div>
-                    <h3 class="font-bold text-white text-base">Standard Scan</h3>
-                    <p class="text-xs text-gray-400 mt-1">Core System Checks + Persistence Hunting</p>
-                </div>
-                <div class="mt-4 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                    <span>Est: 5-7 mins</span>
-                    <span class="text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center">Run <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
-                </div>
-            </button>
+                    <div class="mt-4 flex items-center justify-between text-[11px] text-slate-400 font-medium w-full">
+                        <span>Est: 2-3 mins</span>
+                        <span class="text-emerald-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center font-semibold">Run <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+                    </div>
+                </button>
 
-            <!-- Deep Scan -->
-            <button onclick="startScan('Deep')" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-darksurface border border-gray-800 hover:border-indigo-500/50 hover:bg-gray-800/60 transition-all duration-200 text-left shadow-lg">
-                <div class="absolute -top-2 -right-2">
-                    <span class="bg-indigo-500 text-white text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shadow">Recommended</span>
-                </div>
-                <div>
-                    <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-outlined text-2xl">layers</span>
+                <!-- Standard Scan (Blue) -->
+                <button onclick="startScan('Standard')" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-white border border-slate-200 hover:border-blue-500/80 hover:shadow-lg transition-all duration-200 text-left shadow-sm">
+                    <div>
+                        <div class="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-2xl">troubleshoot</span>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-base">Standard Scan</h3>
+                        <p class="text-xs text-slate-500 mt-1">Core System Checks + Persistence Hunting</p>
+                        
+                        <div class="mt-3 flex flex-wrap gap-1">
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">PersistenceHunting</span>
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">Quick Profile</span>
+                        </div>
                     </div>
-                    <h3 class="font-bold text-white text-base">Deep Scan</h3>
-                    <p class="text-xs text-gray-400 mt-1">Network, Defender, Miners & System Hardening</p>
-                </div>
-                <div class="mt-4 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                    <span>Est: 10-15 mins</span>
-                    <span class="text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center">Run <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
-                </div>
-            </button>
+                    <div class="mt-4 flex items-center justify-between text-[11px] text-slate-400 font-medium w-full">
+                        <span>Est: 5-7 mins</span>
+                        <span class="text-blue-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center font-semibold">Run <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+                    </div>
+                </button>
 
-            <!-- Forensic Scan -->
-            <button onclick="startScan('Forensic')" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-darksurface border border-gray-800 hover:border-purple-500/50 hover:bg-gray-800/60 transition-all duration-200 text-left shadow-lg">
-                <div>
-                    <div class="w-10 h-10 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-outlined text-2xl">biotech</span>
+                <!-- Deep Scan (Indigo / Recommended) -->
+                <button onclick="startScan('Deep')" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-white border-2 border-indigo-500 hover:border-indigo-600 hover:shadow-lg transition-all duration-200 text-left shadow-md relative overflow-hidden">
+                    <div class="absolute top-0 right-0">
+                        <span class="bg-indigo-600 text-white text-[9px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-bl-xl shadow-sm">Recommended</span>
                     </div>
-                    <h3 class="font-bold text-white text-base">Forensic Scan</h3>
-                    <p class="text-xs text-gray-400 mt-1">Timeline, Browser Artifacts & Threat Intel</p>
-                </div>
-                <div class="mt-4 flex items-center justify-between text-[11px] text-gray-500 font-medium">
-                    <span>Est: 20+ mins</span>
-                    <span class="text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity flex items-center">Run <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
-                </div>
-            </button>
+                    <div>
+                        <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-2xl">layers</span>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-base">Deep Scan</h3>
+                        <p class="text-xs text-slate-500 mt-1">Network, Defender, Miners & System Hardening</p>
+                        
+                        <div class="mt-3 flex flex-wrap gap-1">
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">Defender</span>
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">Firewall</span>
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">Hardening</span>
+                        </div>
+                    </div>
+                    <div class="mt-4 flex items-center justify-between text-[11px] text-slate-400 font-medium w-full">
+                        <span>Est: 10-15 mins</span>
+                        <span class="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center font-semibold">Run <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+                    </div>
+                </button>
 
-            <!-- Abort Operation -->
-            <button onclick="stopScan()" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-red-950/20 border border-red-900/40 hover:bg-red-900/30 hover:border-red-600 transition-all duration-200 text-left shadow-lg">
-                <div>
-                    <div class="w-10 h-10 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                        <span class="material-symbols-outlined text-2xl">stop_circle</span>
+                <!-- Forensic Scan (Purple) -->
+                <button onclick="startScan('Forensic')" class="group relative flex flex-col justify-between p-5 rounded-2xl bg-white border border-slate-200 hover:border-purple-500/80 hover:shadow-lg transition-all duration-200 text-left shadow-sm">
+                    <div>
+                        <div class="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 border border-purple-100 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                            <span class="material-symbols-outlined text-2xl">biotech</span>
+                        </div>
+                        <h3 class="font-bold text-slate-900 text-base">Forensic Scan</h3>
+                        <p class="text-xs text-slate-500 mt-1">Timeline, Browser Artifacts & Threat Intel</p>
+                        
+                        <div class="mt-3 flex flex-wrap gap-1">
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">BrowserAudit</span>
+                            <span class="text-[10px] font-mono bg-slate-50 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">ThreatIntel</span>
+                        </div>
                     </div>
-                    <h3 class="font-bold text-red-400 text-base">ABORT</h3>
-                    <p class="text-xs text-red-300/70 mt-1">Immediately terminate active scan</p>
-                </div>
-                <div class="mt-4 text-[11px] text-red-400/80 font-medium flex items-center justify-end">
-                    <span>Stop Execution</span>
-                </div>
-            </button>
+                    <div class="mt-4 flex items-center justify-between text-[11px] text-slate-400 font-medium w-full">
+                        <span>Est: 20+ mins</span>
+                        <span class="text-purple-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center font-semibold">Run <span class="material-symbols-outlined text-sm">arrow_forward</span></span>
+                    </div>
+                </button>
+
+            </div>
         </section>
 
         <!-- Status & Live Metrics Banner -->
-        <section class="bg-darksurface border border-gray-800 rounded-2xl p-5 shadow-lg flex flex-col md:flex-row items-center justify-between gap-4">
-            <div class="flex items-center gap-4 w-full md:w-auto">
-                <div class="relative flex items-center justify-center w-10 h-10 shrink-0">
-                    <div id="statusDot" class="w-4 h-4 bg-gray-500 rounded-full z-10"></div>
-                    <div id="statusPulse" class="absolute inset-0 bg-gray-500 rounded-full opacity-25"></div>
-                </div>
-                <div>
-                    <div class="flex items-center gap-3">
-                        <h2 id="statusTitle" class="text-lg font-bold text-white">System Ready</h2>
-                        <span id="scanModeBadge" class="hidden text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20">Deep Mode</span>
+        <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                
+                <!-- Status Left Block -->
+                <div class="flex items-center gap-4 w-full md:w-auto">
+                    <div class="relative flex items-center justify-center w-10 h-10 shrink-0">
+                        <div id="statusDot" class="w-4 h-4 bg-slate-400 rounded-full z-10 transition-colors"></div>
+                        <div id="statusPulse" class="absolute inset-0 bg-slate-400 rounded-full opacity-0"></div>
                     </div>
-                    <p id="statusDescription" class="text-xs text-gray-400 mt-0.5">Select a scan mode above to initiate system security auditing.</p>
+                    <div>
+                        <div class="flex items-center gap-3">
+                            <h2 id="statusTitle" class="text-lg font-bold text-slate-900">System Ready</h2>
+                            <span id="scanModeBadge" class="hidden text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">Deep Mode</span>
+                            <span id="activePhaseBadge" class="hidden text-xs font-mono text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">Phase: Initializing</span>
+                        </div>
+                        <p id="statusDescription" class="text-xs text-slate-500 mt-0.5">Select a scan mode above to initiate system security auditing.</p>
+                    </div>
+                </div>
+
+                <!-- Right Action Block & Metrics -->
+                <div class="flex flex-wrap items-center gap-2 sm:gap-3 w-full md:w-auto justify-start md:justify-end">
+                    <!-- Log Counts Pills -->
+                    <div class="flex items-center gap-2 text-xs font-mono">
+                        <span id="cntErr" class="px-2.5 py-1 rounded-md bg-rose-50 text-rose-700 border border-rose-200 font-bold">0 ERR</span>
+                        <span id="cntWarn" class="px-2.5 py-1 rounded-md bg-amber-50 text-amber-700 border border-amber-200 font-semibold">0 WARN</span>
+                        <span id="cntSys" class="px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-200">0 SYS</span>
+                    </div>
+
+                    <!-- Abort Button -->
+                    <button id="btnAbort" onclick="stopScan()" class="hidden items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold transition-colors">
+                        <span class="material-symbols-outlined text-sm">stop_circle</span>
+                        <span>Abort</span>
+                    </button>
+
+                    <!-- View & Export Actions -->
+                    <div id="reportActionsGroup" class="hidden flex-wrap items-center gap-2">
+                        <button id="btnReportModal" onclick="previewLatestReport()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs shadow-md shadow-indigo-500/20 transition-all">
+                            <span class="material-symbols-outlined text-base">preview</span>
+                            <span>Inspect</span>
+                        </button>
+
+                        <button onclick="openReport()" class="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-500/20 transition-all">
+                            <span class="material-symbols-outlined text-base">open_in_new</span>
+                            <span>Open HTML</span>
+                        </button>
+
+                        <button onclick="printReportDirectly()" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors shadow-sm" title="Print report or save as PDF">
+                            <span class="material-symbols-outlined text-base text-slate-500">print</span>
+                            <span>PDF / Print</span>
+                        </button>
+
+                        <button onclick="downloadReportFile('html')" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors shadow-sm" title="Download HTML report file">
+                            <span class="material-symbols-outlined text-base text-slate-500">download</span>
+                            <span>HTML</span>
+                        </button>
+
+                        <button onclick="downloadReportFile('json')" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold transition-colors shadow-sm" title="Download machine-readable JSON report">
+                            <span class="material-symbols-outlined text-base text-slate-500">data_object</span>
+                            <span>JSON</span>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            <div class="flex items-center gap-4 w-full md:w-auto justify-between md:justify-end">
-                <!-- Log Counts Pills -->
-                <div class="flex items-center gap-2 text-xs font-mono">
-                    <span id="cntErr" class="px-2.5 py-1 rounded-md bg-red-500/10 text-red-400 border border-red-500/20">0 ERR</span>
-                    <span id="cntWarn" class="px-2.5 py-1 rounded-md bg-amber-500/10 text-amber-400 border border-amber-500/20">0 WARN</span>
-                    <span id="cntSys" class="px-2.5 py-1 rounded-md bg-blue-500/10 text-blue-400 border border-blue-500/20">0 SYS</span>
+            <!-- Progress Bar -->
+            <div id="progressContainer" class="hidden flex flex-col gap-1.5 pt-2 border-t border-slate-100">
+                <div class="flex items-center justify-between text-xs font-mono">
+                    <span id="progressStep" class="text-slate-500">Scanning system components...</span>
+                    <span id="progressPercent" class="text-emerald-600 font-bold">0%</span>
                 </div>
-
-                <!-- Open Report Button -->
-                <button id="btnReport" onclick="openReport()" class="hidden flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-lg shadow-blue-500/20 transition-all duration-200 shrink-0">
-                    <span class="material-symbols-outlined text-base">analytics</span>
-                    Open Full Audit Report
-                </button>
+                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                    <div id="progressBar" class="h-full bg-gradient-to-r from-emerald-500 via-blue-500 to-indigo-500 progress-bar-stripes transition-all duration-300" style="width: 5%"></div>
+                </div>
             </div>
         </section>
 
-        <!-- Live Terminal Log Viewer -->
-        <section class="flex-1 flex flex-col bg-darksurface border border-gray-800 rounded-2xl shadow-xl overflow-hidden min-h-[450px]">
-            <!-- Log Console Header -->
-            <div class="px-5 py-3.5 bg-gray-900/80 border-b border-gray-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
+        <!-- Workspace Tabs Navigation -->
+        <div class="flex items-center justify-between border-b border-slate-200 pb-2 gap-4">
+            <div class="flex items-center gap-2 text-xs sm:text-sm font-medium">
+                <button onclick="switchTab('console')" id="tabBtnConsole" class="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 border border-slate-200 font-semibold shadow-sm transition-colors">
+                    <span class="material-symbols-outlined text-base text-emerald-600">terminal</span>
+                    <span>Live Audit Console</span>
+                </button>
+                <button onclick="switchTab('findings')" id="tabBtnFindings" class="flex items-center gap-2 px-4 py-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/60 transition-colors">
+                    <span class="material-symbols-outlined text-base text-blue-600">analytics</span>
+                    <span>Findings & Remediation</span>
+                    <span id="findingsTabBadge" class="hidden text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-rose-100 text-rose-700 border border-rose-200 font-bold">0</span>
+                </button>
+                <button onclick="switchTab('history')" id="tabBtnHistory" class="flex items-center gap-2 px-4 py-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/60 transition-colors">
+                    <span class="material-symbols-outlined text-base text-indigo-600">history</span>
+                    <span>Historical Scans & Exports</span>
+                </button>
+            </div>
+
+            <!-- Console Controls -->
+            <div id="consoleGlobalControls" class="flex items-center gap-2 text-xs">
+                <button onclick="copyConsoleLogs()" title="Copy all visible console logs to clipboard" class="p-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors shadow-sm">
+                    <span class="material-symbols-outlined text-base">content_copy</span>
+                </button>
+                <button onclick="downloadConsoleLogs()" title="Download raw logs as .txt file" class="p-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 hover:text-slate-900 transition-colors shadow-sm">
+                    <span class="material-symbols-outlined text-base">download</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- TAB 1: Live Diagnostic Console -->
+        <section id="viewConsole" class="flex-1 flex flex-col bg-slate-900 border border-slate-800 rounded-2xl shadow-md overflow-hidden min-h-[480px]">
+            
+            <!-- Terminal Header -->
+            <div class="px-5 py-3.5 bg-slate-950/90 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3 shrink-0">
                 <div class="flex items-center gap-3">
                     <span class="material-symbols-outlined text-emerald-400 text-xl">terminal</span>
-                    <span class="text-sm font-semibold text-gray-200">Live Audit Console Output</span>
-                    <span id="logCountBadge" class="text-xs font-mono text-gray-500 bg-gray-800 px-2 py-0.5 rounded">0 lines</span>
+                    <span class="text-sm font-semibold text-slate-200">Live Audit Console Output</span>
+                    <span id="logCountBadge" class="text-xs font-mono text-slate-400 bg-slate-800 px-2 py-0.5 rounded">0 lines</span>
+                </div>
+
+                <!-- Search Filter in Console -->
+                <div class="flex items-center gap-2 flex-1 max-w-xs">
+                    <div class="relative w-full">
+                        <span class="material-symbols-outlined absolute left-2.5 top-2 text-sm text-slate-400">search</span>
+                        <input type="text" id="logSearchInput" oninput="filterLogsSearch()" placeholder="Filter logs..." class="w-full pl-8 pr-3 py-1 bg-slate-900 border border-slate-700 rounded-lg text-xs font-mono text-slate-200 placeholder-slate-400 focus:outline-none focus:border-emerald-500/50"/>
+                    </div>
                 </div>
 
                 <!-- Log Filter Tabs -->
-                <div class="flex items-center gap-1 bg-gray-800/80 p-1 rounded-lg border border-gray-700/60 text-xs">
-                    <button onclick="setLogFilter('ALL')" id="filterALL" class="px-3 py-1 rounded-md font-medium text-white bg-gray-700 shadow-sm transition-colors">All</button>
-                    <button onclick="setLogFilter('ERR')" id="filterERR" class="px-3 py-1 rounded-md font-medium text-gray-400 hover:text-red-400 transition-colors">Errors</button>
-                    <button onclick="setLogFilter('WARN')" id="filterWARN" class="px-3 py-1 rounded-md font-medium text-gray-400 hover:text-amber-400 transition-colors">Warnings</button>
-                    <button onclick="setLogFilter('SYS')" id="filterSYS" class="px-3 py-1 rounded-md font-medium text-gray-400 hover:text-blue-400 transition-colors">System</button>
+                <div class="flex items-center gap-1 bg-slate-900 p-1 rounded-lg border border-slate-700 text-xs">
+                    <button onclick="setLogFilter('ALL')" id="filterALL" class="px-3 py-1 rounded-md font-medium text-white bg-slate-700 shadow-sm transition-colors">All</button>
+                    <button onclick="setLogFilter('ERR')" id="filterERR" class="px-3 py-1 rounded-md font-medium text-slate-400 hover:text-rose-400 transition-colors">Errors</button>
+                    <button onclick="setLogFilter('WARN')" id="filterWARN" class="px-3 py-1 rounded-md font-medium text-slate-400 hover:text-amber-400 transition-colors">Warnings</button>
+                    <button onclick="setLogFilter('SYS')" id="filterSYS" class="px-3 py-1 rounded-md font-medium text-slate-400 hover:text-blue-400 transition-colors">System</button>
                 </div>
 
                 <!-- Actions -->
                 <div class="flex items-center gap-2">
-                    <button onclick="clearLogs()" class="px-3 py-1 rounded-lg text-xs font-medium text-gray-400 hover:text-white hover:bg-gray-800 transition-colors">Clear</button>
+                    <label class="flex items-center gap-1.5 text-[11px] text-slate-400 cursor-pointer select-none font-mono">
+                        <input type="checkbox" id="chkAutoScroll" checked class="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0"/>
+                        <span>Auto-scroll</span>
+                    </label>
+                    <button onclick="clearLogs()" class="px-3 py-1 rounded-lg text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">Clear</button>
                 </div>
             </div>
 
-            <!-- Terminal Output Container -->
-            <div id="logContainer" class="flex-1 p-5 font-mono text-xs space-y-1.5 custom-scrollbar bg-darkbg/90 overflow-y-auto min-h-[350px]">
-                <div class="text-gray-500 italic">Audit console initialized. Select a scan profile to begin streaming live audit events...</div>
+            <!-- Terminal Output Body -->
+            <div id="logContainer" class="flex-1 p-5 font-mono text-xs space-y-1.5 terminal-scrollbar bg-[#090e17] overflow-y-auto min-h-[360px] max-h-[600px]">
+                <div class="text-slate-500 italic">Audit console initialized. Select a scan profile to begin streaming live audit events...</div>
+            </div>
+        </section>
+
+        <!-- TAB 2: Findings & Remediation Dashboard -->
+        <section id="viewFindings" class="hidden flex-col gap-6">
+            
+            <!-- Health Score HUD Card -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                
+                <!-- Security Score Meter -->
+                <div class="p-6 rounded-2xl bg-white border border-slate-200 flex items-center justify-between shadow-sm">
+                    <div>
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Security Score</div>
+                        <div id="metricSecurityScore" class="text-3xl font-extrabold text-emerald-600 font-mono mt-1">--</div>
+                        <div id="metricRiskTier" class="text-xs font-mono text-slate-500 mt-1">Posture: Normal</div>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shadow-sm">
+                        <span class="material-symbols-outlined text-3xl">verified_user</span>
+                    </div>
+                </div>
+
+                <!-- Critical Fails -->
+                <div class="p-6 rounded-2xl bg-white border border-slate-200 flex items-center justify-between shadow-sm">
+                    <div>
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Critical Issues</div>
+                        <div id="metricFailCount" class="text-3xl font-extrabold text-rose-600 font-mono mt-1">0</div>
+                        <div class="text-xs text-slate-500 mt-1">High-risk vulnerabilities</div>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center text-rose-600 shadow-sm">
+                        <span class="material-symbols-outlined text-3xl">dangerous</span>
+                    </div>
+                </div>
+
+                <!-- Warnings -->
+                <div class="p-6 rounded-2xl bg-white border border-slate-200 flex items-center justify-between shadow-sm">
+                    <div>
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Warnings</div>
+                        <div id="metricWarnCount" class="text-3xl font-extrabold text-amber-600 font-mono mt-1">0</div>
+                        <div class="text-xs text-slate-500 mt-1">Misconfigurations</div>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shadow-sm">
+                        <span class="material-symbols-outlined text-3xl">warning</span>
+                    </div>
+                </div>
+
+                <!-- Total Checks Passed -->
+                <div class="p-6 rounded-2xl bg-white border border-slate-200 flex items-center justify-between shadow-sm">
+                    <div>
+                        <div class="text-xs font-bold text-slate-500 uppercase tracking-wider">Passed Audits</div>
+                        <div id="metricPassCount" class="text-3xl font-extrabold text-slate-700 font-mono mt-1">0</div>
+                        <div class="text-xs text-slate-500 mt-1">Verified safe components</div>
+                    </div>
+                    <div class="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-center text-slate-500 shadow-sm">
+                        <span class="material-symbols-outlined text-3xl">check_circle</span>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Findings Category Filters & Search -->
+            <div class="flex flex-wrap items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+                <div class="flex flex-wrap items-center gap-1.5" id="categoryFilterContainer">
+                    <button onclick="filterFindingsByCategory('ALL')" class="category-btn active px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 text-white shadow-sm">All Findings</button>
+                </div>
+                
+                <div class="flex items-center gap-2">
+                    <button onclick="fetchAndRenderLatestFindings()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium transition-colors shadow-sm">
+                        <span class="material-symbols-outlined text-sm">refresh</span>
+                        <span>Reload Findings</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Findings Card List -->
+            <div id="findingsContainer" class="flex flex-col gap-3">
+                <div class="p-8 text-center bg-white border border-slate-200 rounded-2xl text-slate-500 shadow-sm">
+                    <span class="material-symbols-outlined text-4xl text-slate-400 mb-2">find_in_page</span>
+                    <p class="text-sm font-medium text-slate-700">No findings loaded yet.</p>
+                    <p class="text-xs text-slate-400 mt-1">Run an audit scan or load a previous report to inspect findings & remediation guides.</p>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- TAB 3: Historical Audit Reports Vault -->
+        <section id="viewHistory" class="hidden flex-col gap-4">
+            <div class="flex items-center justify-between">
+                <div>
+                    <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Audit History Vault & Exports</h3>
+                    <p class="text-xs text-slate-400">Directly view, download, or print all historical security reports generated on this machine</p>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="openReportsFolder()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium transition-colors shadow-sm">
+                        <span class="material-symbols-outlined text-sm text-slate-500">folder</span>
+                        <span>Open Folder</span>
+                    </button>
+                    <button onclick="loadReportsHistory()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 border border-slate-200 text-xs text-slate-700 font-medium transition-colors shadow-sm">
+                        <span class="material-symbols-outlined text-sm">refresh</span>
+                        <span>Refresh Vault</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Table of Previous Reports -->
+            <div class="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-50 border-b border-slate-200 text-slate-600 font-mono">
+                            <tr>
+                                <th class="p-3.5 pl-5">Audit Run Date</th>
+                                <th class="p-3.5">Report Folder</th>
+                                <th class="p-3.5">Risk Rating</th>
+                                <th class="p-3.5">Findings Summary</th>
+                                <th class="p-3.5 pr-5 text-right">Actions & Export</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyTableBody" class="divide-y divide-slate-100 text-slate-700 font-mono">
+                            <tr>
+                                <td colspan="5" class="p-6 text-center text-slate-400 italic">Loading report history from local disk...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
     </main>
 
-    <!-- UI State JavaScript Engine -->
+    <!-- In-App Report Viewer Modal -->
+    <div id="reportModal" class="fixed inset-0 z-50 hidden bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-6">
+        <div class="bg-white border border-slate-200 rounded-2xl w-full h-full max-w-6xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
+            <!-- Modal Header -->
+            <div class="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-3">
+                    <span class="material-symbols-outlined text-blue-600 text-xl">analytics</span>
+                    <span class="font-bold text-sm text-slate-900">Security Audit Report Preview</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button onclick="printModalIframe()" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white font-medium text-xs transition-colors shadow-sm">
+                        <span class="material-symbols-outlined text-sm">print</span>
+                        <span>Save as PDF / Print</span>
+                    </button>
+                    <button id="modalOpenExternalBtn" onclick="openModalReportExternal()" class="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-white hover:bg-slate-100 border border-slate-200 text-xs text-slate-700 transition-colors shadow-sm">
+                        <span class="material-symbols-outlined text-sm">open_in_new</span>
+                        <span>Open in Tab</span>
+                    </button>
+                    <button onclick="closeReportModal()" class="p-1.5 rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-colors">
+                        <span class="material-symbols-outlined text-base">close</span>
+                    </button>
+                </div>
+            </div>
+            <!-- Modal Iframe Body -->
+            <div class="flex-1 bg-slate-100">
+                <iframe id="reportFrame" class="w-full h-full border-0" src="about:blank"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-800 text-xs text-white shadow-2xl flex items-center gap-2">
+        <span id="toastIcon" class="material-symbols-outlined text-base text-emerald-400">check_circle</span>
+        <span id="toastMessage">Notification</span>
+    </div>
+
+    <!-- JavaScript Controller Engine -->
     <script>
+        // DOM Elements
         const statusTitle = document.getElementById('statusTitle');
         const statusDescription = document.getElementById('statusDescription');
         const statusDot = document.getElementById('statusDot');
         const statusPulse = document.getElementById('statusPulse');
         const scanModeBadge = document.getElementById('scanModeBadge');
-        const btnReport = document.getElementById('btnReport');
+        const activePhaseBadge = document.getElementById('activePhaseBadge');
+        
+        const btnAbort = document.getElementById('btnAbort');
+        const reportActionsGroup = document.getElementById('reportActionsGroup');
+        const btnReportModal = document.getElementById('btnReportModal');
+        
+        const progressContainer = document.getElementById('progressContainer');
+        const progressBar = document.getElementById('progressBar');
+        const progressStep = document.getElementById('progressStep');
+        const progressPercent = document.getElementById('progressPercent');
+        
         const logContainer = document.getElementById('logContainer');
         const timerContainer = document.getElementById('timerContainer');
         const elapsedTimer = document.getElementById('elapsedTimer');
         const logCountBadge = document.getElementById('logCountBadge');
+        const chkAutoScroll = document.getElementById('chkAutoScroll');
         
         const cntErr = document.getElementById('cntErr');
         const cntWarn = document.getElementById('cntWarn');
         const cntSys = document.getElementById('cntSys');
 
+        const hudHost = document.getElementById('hudHost');
+        const hudOS = document.getElementById('hudOS');
+        const hudAdminDot = document.getElementById('hudAdminDot');
+        const hudAdminText = document.getElementById('hudAdminText');
+        const findingsTabBadge = document.getElementById('findingsTabBadge');
+
         let logsList = [];
         let currentFilter = 'ALL';
+        let currentSearchQuery = '';
         let errCount = 0, warnCount = 0, sysCount = 0;
+        let latestReportUrl = '';
+        let currentFindings = [];
+        let activeCategoryFilter = 'ALL';
+
+        function showToast(msg, isSuccess = true) {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastIcon = document.getElementById('toastIcon');
+            
+            toastMessage.textContent = msg;
+            toastIcon.textContent = isSuccess ? 'check_circle' : 'warning';
+            toastIcon.className = `material-symbols-outlined text-base ${isSuccess ? 'text-emerald-400' : 'text-rose-400'}`;
+            
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
 
         function formatTimer(seconds) {
             const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -255,86 +581,186 @@
             return `${m}:${s}`;
         }
 
+        function getAuditToken() {
+            const meta = document.querySelector('meta[name="audit-token"]');
+            return meta ? meta.getAttribute('content') : '';
+        }
+
+        function getAuthHeaders() {
+            const token = getAuditToken();
+            return token ? { 'X-Audit-Token': token } : {};
+        }
+
+        // Tab Navigation
+        function switchTab(tab) {
+            const views = { console: 'viewConsole', findings: 'viewFindings', history: 'viewHistory' };
+            const btns = { console: 'tabBtnConsole', findings: 'tabBtnFindings', history: 'tabBtnHistory' };
+            
+            Object.keys(views).forEach(k => {
+                const el = document.getElementById(views[k]);
+                const btn = document.getElementById(btns[k]);
+                if (k === tab) {
+                    el.classList.remove('hidden');
+                    if (k === 'console') el.classList.add('flex');
+                    if (k === 'findings') el.classList.add('flex');
+                    if (k === 'history') el.classList.add('flex');
+                    btn.className = "flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-slate-900 border border-slate-200 font-semibold shadow-sm";
+                } else {
+                    el.classList.add('hidden');
+                    el.classList.remove('flex');
+                    btn.className = "flex items-center gap-2 px-4 py-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-white/60 transition-colors";
+                }
+            });
+
+            if (tab === 'history') loadReportsHistory();
+            if (tab === 'findings' && currentFindings.length === 0) fetchAndRenderLatestFindings();
+        }
+
+        // Host Telemetry
+        async function loadSystemTelemetry() {
+            try {
+                const res = await fetch('/api/sysinfo', { headers: getAuthHeaders() });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    hudHost.textContent = data.computerName || 'Localhost';
+                    hudOS.textContent = data.osName ? `${data.osName} (${data.architecture})` : 'Windows';
+                    if (data.isAdmin) {
+                        hudAdminDot.className = "w-2 h-2 rounded-full bg-emerald-500";
+                        hudAdminText.className = "text-emerald-700 font-bold";
+                        hudAdminText.textContent = "ADMIN";
+                    } else {
+                        hudAdminDot.className = "w-2 h-2 rounded-full bg-amber-500";
+                        hudAdminText.className = "text-amber-700 font-medium";
+                        hudAdminText.textContent = "STANDARD";
+                    }
+                }
+            } catch (e) {}
+        }
+
+        // Live Log Parsing and Phase Tracking
+        function detectModulePhase(line) {
+            if (line.includes('File System Integrity')) return { name: 'File System Integrity', pct: 15 };
+            if (line.includes('Process & Performance')) return { name: 'Process & Memory Triage', pct: 30 };
+            if (line.includes('Persistence Mechanism')) return { name: 'Persistence Hunting', pct: 50 };
+            if (line.includes('CryptoMiner')) return { name: 'CryptoMiner Detection', pct: 65 };
+            if (line.includes('Windows Defender')) return { name: 'Windows Defender Audit', pct: 75 };
+            if (line.includes('Firewall')) return { name: 'Firewall Rules Audit', pct: 82 };
+            if (line.includes('System Hardening')) return { name: 'System Hardening', pct: 90 };
+            if (line.includes('Forensic Analysis')) return { name: 'Forensic Checks', pct: 95 };
+            if (line.includes('Finalizing Report')) return { name: 'Report Generation', pct: 98 };
+            return null;
+        }
+
         function updateUIState(state, mode, elapsedSeconds) {
             if (state === 'Running') {
                 statusTitle.textContent = "Audit Scan in Progress";
                 statusDescription.textContent = `Running ${mode || 'Security'} profile examination modules...`;
-                statusDot.className = "w-4 h-4 bg-emerald-400 rounded-full z-10";
-                statusPulse.className = "absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-30";
+                statusDot.className = "w-4 h-4 bg-emerald-500 rounded-full z-10";
+                statusPulse.className = "absolute inset-0 bg-emerald-400 rounded-full animate-ping opacity-50";
+                
                 scanModeBadge.textContent = `${mode || 'Quick'} Mode`;
                 scanModeBadge.classList.remove('hidden');
-                btnReport.classList.add('hidden');
+                activePhaseBadge.classList.remove('hidden');
+                
+                btnAbort.classList.remove('hidden');
+                btnAbort.classList.add('flex');
+                reportActionsGroup.classList.add('hidden');
+                reportActionsGroup.classList.remove('flex');
+                
+                progressContainer.classList.remove('hidden');
                 timerContainer.classList.remove('hidden');
+                
                 if (elapsedSeconds !== undefined) {
                     elapsedTimer.textContent = formatTimer(elapsedSeconds);
                 }
             } else if (state === 'Completed') {
                 statusTitle.textContent = "Audit Completed Successfully";
-                statusDescription.textContent = "All security checks finished. Click 'Open Full Audit Report' to review detailed results.";
-                statusDot.className = "w-4 h-4 bg-blue-500 rounded-full z-10";
-                statusPulse.className = "absolute inset-0 bg-blue-500 rounded-full opacity-0";
-                btnReport.classList.remove('hidden');
+                statusDescription.textContent = "All security checks finished. View report, inspect findings, or export below.";
+                statusDot.className = "w-4 h-4 bg-blue-600 rounded-full z-10";
+                statusPulse.className = "absolute inset-0 opacity-0";
+                
+                btnAbort.classList.add('hidden');
+                reportActionsGroup.classList.remove('hidden');
+                reportActionsGroup.classList.add('flex');
+                
+                progressBar.style.width = '100%';
+                progressPercent.textContent = '100%';
+                progressStep.textContent = 'Audit finalized successfully.';
                 timerContainer.classList.add('hidden');
+                activePhaseBadge.classList.add('hidden');
             } else if (state === 'Stopped') {
                 statusTitle.textContent = "Audit Aborted";
                 statusDescription.textContent = "Execution was terminated by user request.";
                 statusDot.className = "w-4 h-4 bg-amber-500 rounded-full z-10";
-                statusPulse.className = "absolute inset-0 bg-amber-500 rounded-full opacity-0";
-                btnReport.classList.add('hidden');
+                statusPulse.className = "absolute inset-0 opacity-0";
+                btnAbort.classList.add('hidden');
                 timerContainer.classList.add('hidden');
+                activePhaseBadge.classList.add('hidden');
+                progressContainer.classList.add('hidden');
             } else if (state === 'Failed') {
                 statusTitle.textContent = "Audit Execution Error";
                 statusDescription.textContent = "An error occurred during audit job execution.";
-                statusDot.className = "w-4 h-4 bg-red-500 rounded-full z-10";
-                statusPulse.className = "absolute inset-0 bg-red-500 rounded-full opacity-0";
-                btnReport.classList.add('hidden');
+                statusDot.className = "w-4 h-4 bg-rose-600 rounded-full z-10";
+                statusPulse.className = "absolute inset-0 opacity-0";
+                btnAbort.classList.add('hidden');
                 timerContainer.classList.add('hidden');
+                activePhaseBadge.classList.add('hidden');
+                progressContainer.classList.add('hidden');
             } else {
                 // Idle
                 statusTitle.textContent = "System Ready";
                 statusDescription.textContent = "Select a scan mode above to initiate system security auditing.";
-                statusDot.className = "w-4 h-4 bg-gray-500 rounded-full z-10";
-                statusPulse.className = "absolute inset-0 bg-gray-500 rounded-full opacity-0";
+                statusDot.className = "w-4 h-4 bg-slate-400 rounded-full z-10";
+                statusPulse.className = "absolute inset-0 opacity-0";
                 scanModeBadge.classList.add('hidden');
+                activePhaseBadge.classList.add('hidden');
+                btnAbort.classList.add('hidden');
                 timerContainer.classList.add('hidden');
             }
         }
 
+        function escapeHtml(text) {
+            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        }
+
         function renderLogs() {
             logContainer.innerHTML = '';
-            const filtered = logsList.filter(l => currentFilter === 'ALL' || l.type === currentFilter);
+            const filtered = logsList.filter(l => {
+                const matchType = currentFilter === 'ALL' || l.type === currentFilter;
+                const matchSearch = !currentSearchQuery || l.message.toLowerCase().includes(currentSearchQuery.toLowerCase());
+                return matchType && matchSearch;
+            });
             
             if (filtered.length === 0) {
-                logContainer.innerHTML = `<div class="text-gray-500 italic">No log entries matching filter '${currentFilter}'.</div>`;
+                logContainer.innerHTML = `<div class="text-slate-500 italic p-2">No log entries matching filter '${currentFilter}'${currentSearchQuery ? ` and query '${currentSearchQuery}'` : ''}.</div>`;
                 return;
             }
 
             filtered.forEach(log => {
                 const div = document.createElement('div');
-                div.className = "flex gap-3 text-gray-300 border-b border-gray-800/40 pb-1 mb-1 log-entry";
+                div.className = "flex gap-3 text-slate-300 border-b border-slate-800/40 pb-1 mb-1 log-entry";
                 
-                let badgeClass = "text-blue-400 bg-blue-500/10 border-blue-500/20";
-                if (log.type === "ERR") badgeClass = "text-red-400 bg-red-500/10 border-red-500/20 font-bold";
-                if (log.type === "WARN") badgeClass = "text-amber-400 bg-amber-500/10 border-amber-500/20";
+                let badgeClass = "text-sky-400 bg-sky-500/10 border-sky-500/20";
+                if (log.type === "ERR") badgeClass = "text-rose-400 bg-rose-500/15 border-rose-500/30 font-bold";
+                if (log.type === "WARN") badgeClass = "text-amber-400 bg-amber-500/15 border-amber-500/30 font-semibold";
                 if (log.type === "SYS") badgeClass = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
 
                 div.innerHTML = `
-                    <span class="w-16 shrink-0 opacity-40 font-mono text-[11px]">${log.time}</span>
+                    <span class="w-16 shrink-0 opacity-40 font-mono text-[11px] select-none text-slate-400">${log.time}</span>
                     <span class="px-1.5 py-0.2 rounded border text-[10px] uppercase font-mono ${badgeClass} shrink-0">[${log.type}]</span>
-                    <span class="flex-1 break-words">${escapeHtml(log.message)}</span>
+                    <span class="flex-1 break-words leading-relaxed">${escapeHtml(log.message)}</span>
                 `;
                 logContainer.appendChild(div);
             });
-            logContainer.scrollTop = logContainer.scrollHeight;
+
+            if (chkAutoScroll.checked) {
+                logContainer.scrollTop = logContainer.scrollHeight;
+            }
+
             logCountBadge.textContent = `${logsList.length} lines`;
-            
             cntErr.textContent = `${errCount} ERR`;
             cntWarn.textContent = `${warnCount} WARN`;
             cntSys.textContent = `${sysCount} SYS`;
-        }
-
-        function escapeHtml(text) {
-            return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         }
 
         function addLogsBatch(newLogs) {
@@ -343,6 +769,14 @@
                 if (l.type === "ERR") errCount++;
                 if (l.type === "WARN") warnCount++;
                 if (l.type === "SYS") sysCount++;
+
+                const phase = detectModulePhase(l.message);
+                if (phase) {
+                    activePhaseBadge.textContent = phase.name;
+                    progressStep.textContent = phase.name;
+                    progressBar.style.width = `${phase.pct}%`;
+                    progressPercent.textContent = `${phase.pct}%`;
+                }
             });
             renderLogs();
         }
@@ -358,32 +792,46 @@
             ['ALL', 'ERR', 'WARN', 'SYS'].forEach(f => {
                 const btn = document.getElementById(`filter${f}`);
                 if (f === filter) {
-                    btn.className = "px-3 py-1 rounded-md font-medium text-white bg-gray-700 shadow-sm transition-colors";
+                    btn.className = "px-3 py-1 rounded-md font-medium text-white bg-slate-700 shadow-sm transition-colors";
                 } else {
-                    btn.className = "px-3 py-1 rounded-md font-medium text-gray-400 hover:text-white transition-colors";
+                    btn.className = "px-3 py-1 rounded-md font-medium text-slate-400 hover:text-white transition-colors";
                 }
             });
             renderLogs();
         }
 
-        function getAuditToken() {
-            const meta = document.querySelector('meta[name="audit-token"]');
-            return meta ? meta.getAttribute('content') : '';
+        function filterLogsSearch() {
+            currentSearchQuery = document.getElementById('logSearchInput').value.trim();
+            renderLogs();
         }
 
-        function getAuthHeaders() {
-            const token = getAuditToken();
-            return token ? { 'X-Audit-Token': token } : {};
+        function copyConsoleLogs() {
+            const text = logsList.map(l => `[${l.time}] [${l.type}] ${l.message}`).join('\n');
+            navigator.clipboard.writeText(text).then(() => {
+                showToast("Console logs copied to clipboard!");
+            });
+        }
+
+        function downloadConsoleLogs() {
+            const text = logsList.map(l => `[${l.time}] [${l.type}] ${l.message}`).join('\n');
+            const blob = new Blob([text], { type: 'text/plain' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `audit_console_${new Date().toISOString().replace(/[:.]/g, '-')}.log`;
+            a.click();
         }
 
         async function startScan(mode) {
             clearLogs();
+            switchTab('console');
             addLogsBatch([{ time: new Date().toLocaleTimeString(), type: "SYS", message: `Initiating ${mode} Security Audit Scan...` }]);
             try {
                 const res = await fetch(`/api/start?mode=${mode}`, { headers: getAuthHeaders() });
                 const data = await res.json();
                 if (data.status !== "success") {
                     addLogsBatch([{ time: new Date().toLocaleTimeString(), type: "ERR", message: data.message || "Failed to start scan." }]);
+                } else {
+                    showToast(`Started ${mode} Scan`);
                 }
             } catch (e) {
                 addLogsBatch([{ time: new Date().toLocaleTimeString(), type: "ERR", message: "Failed to connect to local backend API." }]);
@@ -394,6 +842,14 @@
             addLogsBatch([{ time: new Date().toLocaleTimeString(), type: "WARN", message: "Sending abort signal to backend engine..." }]);
             try {
                 await fetch('/api/stop', { headers: getAuthHeaders() });
+                showToast("Scan aborted", false);
+            } catch (e) {}
+        }
+
+        async function openReportsFolder() {
+            try {
+                await fetch('/api/open-folder', { headers: getAuthHeaders() });
+                showToast("Opened Reports directory in Explorer");
             } catch (e) {}
         }
 
@@ -402,7 +858,9 @@
                 const response = await fetch('/api/open-report', { headers: getAuthHeaders() });
                 const data = await response.json();
                 if (data.status === 'success' && data.url) {
-                    window.open(data.url, '_blank');
+                    const token = getAuditToken();
+                    const fullUrl = data.url.includes('?') ? `${data.url}&token=${token}` : `${data.url}?token=${token}`;
+                    window.open(fullUrl, '_blank');
                 } else {
                     alert("Report file not found. Please check the 'Reports' directory.");
                 }
@@ -411,15 +869,304 @@
             }
         }
 
-        // Polling loop for status and log streaming
+        async function previewLatestReport() {
+            try {
+                const response = await fetch('/api/open-report', { headers: getAuthHeaders() });
+                const data = await response.json();
+                if (data.status === 'success' && data.url) {
+                    const token = getAuditToken();
+                    const fullUrl = data.url.includes('?') ? `${data.url}&token=${token}` : `${data.url}?token=${token}`;
+                    openReportModal(fullUrl);
+                }
+            } catch (e) {
+                openReport();
+            }
+        }
+
+        function openReportModal(url) {
+            latestReportUrl = url;
+            document.getElementById('reportFrame').src = url;
+            document.getElementById('reportModal').classList.remove('hidden');
+        }
+
+        function closeReportModal() {
+            document.getElementById('reportModal').classList.add('hidden');
+            document.getElementById('reportFrame').src = 'about:blank';
+        }
+
+        function openModalReportExternal() {
+            if (latestReportUrl) {
+                window.open(latestReportUrl, '_blank');
+            }
+        }
+
+        function printModalIframe() {
+            const frame = document.getElementById('reportFrame');
+            if (frame && frame.contentWindow) {
+                frame.contentWindow.focus();
+                frame.contentWindow.print();
+            }
+        }
+
+        async function printReportDirectly() {
+            try {
+                const response = await fetch('/api/open-report', { headers: getAuthHeaders() });
+                const data = await response.json();
+                if (data.status === 'success' && data.url) {
+                    const token = getAuditToken();
+                    const printUrl = data.url.includes('?') 
+                        ? `${data.url}&token=${token}&print=1` 
+                        : `${data.url}?token=${token}&print=1`;
+                    window.open(printUrl, '_blank');
+                } else {
+                    await previewLatestReport();
+                    setTimeout(() => { printModalIframe(); }, 600);
+                }
+            } catch (e) {
+                printModalIframe();
+            }
+        }
+
+        async function downloadReportFile(type) {
+            try {
+                const res = await fetch('/api/open-report', { headers: getAuthHeaders() });
+                const data = await res.json();
+                if (data.status === 'success' && data.url) {
+                    let targetUrl = data.url;
+                    if (type === 'json') {
+                        targetUrl = targetUrl.replace('report.html', 'report.json');
+                    }
+                    const token = getAuditToken();
+                    const downloadUrl = `${targetUrl}?token=${token}&download=1`;
+                    const a = document.createElement('a');
+                    a.href = downloadUrl;
+                    a.download = type === 'json' ? 'report.json' : 'report.html';
+                    a.click();
+                    showToast(`Downloading report.${type}`);
+                }
+            } catch (e) {
+                showToast("Failed to download report file.", false);
+            }
+        }
+
+        // Findings Rendering & Remediation
+        async function fetchAndRenderLatestFindings(folderName) {
+            const url = folderName ? `/api/report-data?folder=${encodeURIComponent(folderName)}` : '/api/report-data';
+            try {
+                const res = await fetch(url, { headers: getAuthHeaders() });
+                const data = await res.json();
+                if (data && data.Findings) {
+                    currentFindings = data.Findings;
+                    renderFindingsDashboard(data);
+                    findingsTabBadge.textContent = currentFindings.filter(f => f.Severity === 0 || f.Severity === 2).length;
+                    if (findingsTabBadge.textContent > 0) findingsTabBadge.classList.remove('hidden');
+                }
+            } catch (e) {}
+        }
+
+        function renderFindingsDashboard(data) {
+            const score = data.Score;
+            if (score) {
+                document.getElementById('metricSecurityScore').textContent = `${score.SecurityScore}%`;
+                document.getElementById('metricRiskTier').textContent = `Risk Level: ${score.SeverityLabel} (${score.RiskPercent}%)`;
+                
+                const scoreEl = document.getElementById('metricSecurityScore');
+                if (score.SecurityScore >= 75) scoreEl.className = "text-3xl font-extrabold text-emerald-600 font-mono mt-1";
+                else if (score.SecurityScore >= 50) scoreEl.className = "text-3xl font-extrabold text-amber-600 font-mono mt-1";
+                else scoreEl.className = "text-3xl font-extrabold text-rose-600 font-mono mt-1";
+            }
+
+            const fails = currentFindings.filter(f => f.Severity === 0);
+            const warns = currentFindings.filter(f => f.Severity === 2);
+            const passes = currentFindings.filter(f => f.Severity === 1);
+            
+            document.getElementById('metricFailCount').textContent = fails.length;
+            document.getElementById('metricWarnCount').textContent = warns.length;
+            document.getElementById('metricPassCount').textContent = passes.length;
+
+            // Categories
+            const categories = ['ALL', ...new Set(currentFindings.map(f => f.Category || 'General'))];
+            const filterContainer = document.getElementById('categoryFilterContainer');
+            filterContainer.innerHTML = '';
+            categories.forEach(cat => {
+                const btn = document.createElement('button');
+                btn.className = `category-btn px-3 py-1 rounded-lg text-xs font-medium transition-colors ${cat === activeCategoryFilter ? 'bg-slate-800 text-white shadow-sm' : 'text-slate-600 hover:text-slate-900'}`;
+                btn.textContent = cat === 'ALL' ? 'All Findings' : cat;
+                btn.onclick = () => filterFindingsByCategory(cat);
+                filterContainer.appendChild(btn);
+            });
+
+            renderFindingsList();
+        }
+
+        function filterFindingsByCategory(cat) {
+            activeCategoryFilter = cat;
+            document.querySelectorAll('.category-btn').forEach(b => {
+                if ((b.textContent === 'All Findings' && cat === 'ALL') || b.textContent === cat) {
+                    b.className = "category-btn px-3 py-1 rounded-lg text-xs font-medium bg-slate-800 text-white shadow-sm";
+                } else {
+                    b.className = "category-btn px-3 py-1 rounded-lg text-xs font-medium text-slate-600 hover:text-slate-900";
+                }
+            });
+            renderFindingsList();
+        }
+
+        function renderFindingsList() {
+            const container = document.getElementById('findingsContainer');
+            container.innerHTML = '';
+
+            const list = currentFindings.filter(f => activeCategoryFilter === 'ALL' || f.Category === activeCategoryFilter);
+
+            if (list.length === 0) {
+                container.innerHTML = `<div class="p-6 text-center bg-white border border-slate-200 rounded-2xl text-slate-500 text-xs font-mono shadow-sm">No findings in category '${activeCategoryFilter}'.</div>`;
+                return;
+            }
+
+            // Sort: Fails first, then Warns, then Passes, then Infos
+            const sorted = [...list].sort((a, b) => {
+                const map = { 0: 0, 2: 1, 3: 2, 1: 3 };
+                return (map[a.Severity] || 9) - (map[b.Severity] || 9);
+            });
+
+            sorted.forEach((f, idx) => {
+                let badge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-emerald-50 text-emerald-700 border border-emerald-200">PASS</span>`;
+                let borderAccent = "border-slate-200 bg-white";
+                if (f.Severity === 0) {
+                    badge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-bold uppercase bg-rose-50 text-rose-700 border border-rose-200">FAIL</span>`;
+                    borderAccent = "border-rose-200 bg-rose-50/20";
+                } else if (f.Severity === 2) {
+                    badge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono font-semibold uppercase bg-amber-50 text-amber-700 border border-amber-200">WARN</span>`;
+                    borderAccent = "border-amber-200 bg-amber-50/20";
+                } else if (f.Severity === 3) {
+                    badge = `<span class="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-blue-50 text-blue-700 border border-blue-200">INFO</span>`;
+                }
+
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border ${borderAccent} shadow-sm flex flex-col gap-2 transition-all`;
+
+                let notesHtml = '';
+                if (f.Notes && f.Notes.trim()) {
+                    notesHtml = `
+                        <div class="mt-3 p-3.5 rounded-xl bg-slate-50 border border-slate-200 font-mono text-xs text-slate-700 whitespace-pre-wrap leading-relaxed">
+                            <div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                                <span class="material-symbols-outlined text-sm text-emerald-600">build</span>
+                                Remediation & Notes:
+                            </div>
+                            ${escapeHtml(f.Notes)}
+                        </div>
+                    `;
+                }
+
+                card.innerHTML = `
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="flex items-center gap-2.5">
+                            ${badge}
+                            <div>
+                                <h4 class="text-sm font-bold text-slate-900">${escapeHtml(f.Title || f.Id)}</h4>
+                                <div class="text-xs text-slate-500 font-mono mt-0.5">${escapeHtml(f.Value || '')}</div>
+                            </div>
+                        </div>
+                        <span class="text-[10px] font-mono bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">${escapeHtml(f.Category || 'General')}</span>
+                    </div>
+                    ${notesHtml}
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // History Vault
+        async function loadReportsHistory() {
+            const tbody = document.getElementById('historyTableBody');
+            tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 italic">Querying audit vault...</td></tr>`;
+            try {
+                const res = await fetch('/api/reports', { headers: getAuthHeaders() });
+                const data = await res.json();
+                if (data.status === 'success' && data.reports.length > 0) {
+                    tbody.innerHTML = '';
+                    data.reports.forEach(r => {
+                        const tr = document.createElement('tr');
+                        tr.className = "hover:bg-slate-50 transition-colors";
+                        
+                        let scoreBadge = `<span class="text-slate-400 text-xs">--</span>`;
+                        if (r.securityScore !== undefined) {
+                            let color = "text-emerald-700 bg-emerald-50 border-emerald-200";
+                            if (r.securityScore < 75) color = "text-amber-700 bg-amber-50 border-amber-200";
+                            if (r.securityScore < 50) color = "text-rose-700 bg-rose-50 border-rose-200";
+                            scoreBadge = `<span class="px-2 py-0.5 rounded border text-xs font-bold ${color}">${r.securityScore}% (${r.severityLabel || 'Risk'})</span>`;
+                        }
+
+                        let summaryText = `<span class="text-slate-400">N/A</span>`;
+                        if (r.totalFindings !== undefined) {
+                            summaryText = `
+                                <div class="flex items-center gap-1.5 text-[11px]">
+                                    <span class="text-rose-600 font-bold">${r.failCount || 0} FAIL</span>
+                                    <span class="text-slate-300">|</span>
+                                    <span class="text-amber-600">${r.warnCount || 0} WARN</span>
+                                    <span class="text-slate-300">|</span>
+                                    <span class="text-emerald-600">${r.passCount || 0} PASS</span>
+                                </div>
+                            `;
+                        }
+
+                        const token = getAuditToken();
+                        const htmlFullUrl = r.htmlUrl ? `${r.htmlUrl}?token=${token}` : '';
+                        const htmlDownloadUrl = r.htmlUrl ? `${r.htmlUrl}?token=${token}&download=1` : '';
+                        const jsonDownloadUrl = r.jsonUrl ? `${r.jsonUrl}?token=${token}&download=1` : '';
+
+                        tr.innerHTML = `
+                            <td class="p-3.5 pl-5 text-slate-800 font-medium">${r.date}</td>
+                            <td class="p-3.5 text-slate-500">${r.folderName}</td>
+                            <td class="p-3.5">${scoreBadge}</td>
+                            <td class="p-3.5">${summaryText}</td>
+                            <td class="p-3.5 pr-5 text-right">
+                                <div class="flex items-center justify-end gap-1.5">
+                                    <button onclick="inspectHistoricalReport('${r.folderName}')" title="Inspect Findings & Remediation" class="px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-xs font-medium transition-colors shadow-sm">
+                                        Inspect
+                                    </button>
+                                    ${r.htmlUrl ? `<button onclick="openReportModal('${htmlFullUrl}')" class="px-2.5 py-1 rounded-lg bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 text-xs font-medium transition-colors shadow-sm">View HTML</button>` : ''}
+                                    ${r.htmlUrl ? `<a href="${htmlDownloadUrl}" download="report.html" class="p-1 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-xs font-medium transition-colors shadow-sm flex items-center" title="Download HTML"><span class="material-symbols-outlined text-sm">download</span></a>` : ''}
+                                    ${r.jsonUrl ? `<a href="${jsonDownloadUrl}" download="report.json" class="p-1 rounded-lg bg-white hover:bg-slate-50 text-slate-600 border border-slate-200 text-xs font-medium transition-colors shadow-sm flex items-center" title="Download JSON"><span class="material-symbols-outlined text-sm">data_object</span></a>` : ''}
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+                } else {
+                    tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-slate-400 italic">No reports found in the audit vault.</td></tr>`;
+                }
+            } catch (e) {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-6 text-center text-rose-600">Failed to load reports from backend API.</td></tr>`;
+            }
+        }
+
+        function inspectHistoricalReport(folderName) {
+            switchTab('findings');
+            fetchAndRenderLatestFindings(folderName);
+            showToast(`Loaded audit findings: ${folderName}`);
+        }
+
+        // Initialize Telemetry and Polling Loop
+        loadSystemTelemetry();
+
+        let previousState = 'Idle';
+
         setInterval(async () => {
             try {
                 const res = await fetch('/api/status', { headers: getAuthHeaders() });
                 const data = await res.json();
+                
                 updateUIState(data.status, data.mode, data.elapsedSeconds);
+                
                 if (data.logs && data.logs.length > 0) {
                     addLogsBatch(data.logs);
                 }
+
+                // If scan just completed, auto-refresh findings
+                if (previousState === 'Running' && data.status === 'Completed') {
+                    showToast("Scan completed successfully!");
+                    fetchAndRenderLatestFindings();
+                }
+                previousState = data.status;
             } catch (e) {}
         }, 1000);
     </script>

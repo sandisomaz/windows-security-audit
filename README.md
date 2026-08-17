@@ -2,10 +2,9 @@
 
 [![Pester Security Suite CI](https://github.com/sandisomaz/windows-security-audit/actions/workflows/test.yml/badge.svg)](https://github.com/sandisomaz/windows-security-audit/actions/workflows/test.yml)
 [![PowerShell 5.1+](https://img.shields.io/badge/PowerShell-5.1%2B-blue.svg)](https://docs.microsoft.com/en-us/powershell/)
-[![Version 5.5](https://img.shields.io/badge/Version-5.5--Web--Edition-emerald.svg)](#project-architecture--file-directory-map)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-> **Version 5.5 (Production & Web Edition)** -- Enterprise-grade, zero-binary security auditing framework, threat-hunting engine, and real-time live web dashboard for Windows operating systems.
+> Enterprise-grade, zero-binary security auditing framework, threat-hunting engine, and real-time live web dashboard for Windows operating systems.
 
 The **Windows Security Audit Framework** is a modular PowerShell-based forensic and security audit engine paired with a modern real-time **Web Dashboard**. It performs deep system inspection, persistence hunting, process triage, crypto-miner detection, browser extension auditing, network analysis, and system hardening verification without relying on third-party compiled binaries.
 
@@ -22,9 +21,9 @@ For a complete architectural breakdown, data flow diagrams, REST API route speci
 ### Modern Web Dashboard & Hardened API Server
 - **Token-Based CSRF Protection:** Enforces dynamic single-session token verification (`X-Audit-Token` header / URL parameter) generated via 128-bit GUID cryptographically secure tokens.
 - **Live Streamed Auditing:** Real-time log streaming using asynchronous PowerShell background jobs (`*>&1`) and HTTP polling.
-- **Terminal Log Controls:** Live terminal log view with line counting, elapsed scan timer, and log category tab filters (**All**, **Errors**, **Warnings**, **System**).
+- **Terminal Log Controls:** Live terminal log view with line counting, in-terminal text search, auto-scroll locking, elapsed scan timer, and log category tab filters (**All**, **Errors**, **Warnings**, **System**).
 - **Directory Traversal Protection:** Hardened static report file server under `/Reports/` preventing path escape.
-- **One-Click HTML & Data Reports:** Automatically generates interactive Tailwind CSS HTML reports, machine-readable JSON, and CSV datasets.
+- **One-Click HTML & Data Exports:** Automatically generates interactive Tailwind CSS HTML reports, machine-readable JSON datasets, and direct PDF print formatting.
 
 ### Core Audit & Threat Hunting Engines
 - **Process Triage:** Detects process injection, hidden parentless processes, high CPU/RAM spikes, execution from temporary/AppData directories, and unsigned binaries.
@@ -59,11 +58,11 @@ For a complete architectural breakdown, data flow diagrams, REST API route speci
    
    *Or launch manually via PowerShell:*
    ```powershell
-   powershell -ExecutionPolicy Bypass -File .\AuditServer.ps1 -Port 8080
+   powershell -ExecutionPolicy Bypass -File .\AuditServer.ps1 -Port 8765
    ```
 
 3. **Access the Dashboard:**
-   - Open your web browser to **`http://localhost:8080`**.
+   - Open your web browser to **`http://localhost:8765`**.
    - Select your desired scan profile and click to initiate streaming audit logs.
 
 ---
@@ -107,7 +106,7 @@ WindowsSecurityAudit/
 |-- .github/workflows/
 |   `-- test.yml           # GitHub Actions CI/CD Automated Pester Testing
 |-- START_HERE.bat         # One-Click Windows Launcher (Starts Server + Browser)
-|-- AuditServer.ps1        # Hardened HTTP Listener API Backend Engine (Port 8080)
+|-- AuditServer.ps1        # Hardened HTTP Listener API Backend Engine (Port 8765)
 |-- index.html             # Web Dashboard Single Page Application (Tailwind CSS)
 |-- SecurityAudit.ps1      # Main Orchestration Engine
 |-- Config.psd1            # Thresholds, Whitelists & Profile Configuration
@@ -134,7 +133,8 @@ WindowsSecurityAudit/
 `-- Tests/                 # Pester Automated Test Suites (.tests.ps1)
     |-- Core.tests.ps1             # Tests state management & risk calculations
     |-- Forensic.tests.ps1         # Tests HOSTS parser & PUP detection
-    `-- Persistence.tests.ps1      # Tests registry autoruns & scheduled task logic
+    |-- Persistence.tests.ps1      # Tests registry autoruns & scheduled task logic
+    `-- Modules.tests.ps1          # AST syntax & import verification for all 13 modules
 ```
 
 ---
@@ -210,8 +210,12 @@ The native HTTP backend (`AuditServer.ps1`) exposes the following endpoints:
 | `/api/start?mode=<Mode>` | `GET` | `X-Audit-Token` | Starts background audit job |
 | `/api/stop` | `GET` | `X-Audit-Token` | Cancels running audit job |
 | `/api/status` | `GET` | `X-Audit-Token` | Fetches status, elapsed time & log stream |
+| `/api/sysinfo` | `GET` | `X-Audit-Token` | Returns live hardware, OS, and admin privilege metadata |
+| `/api/reports` | `GET` | `X-Audit-Token` | Enumerates historical audit reports with scores and finding counts |
+| `/api/report-data?folder=<Name>` | `GET` | `X-Audit-Token` | Serves structured findings and remediation recommendations |
 | `/api/open-report` | `GET` | `X-Audit-Token` | Obtains latest HTML report URL |
-| `/Reports/*` | `GET` | `X-Audit-Token` | Serves report files safely |
+| `/api/open-folder` | `GET` | `X-Audit-Token` | Opens local `Reports/` directory in Windows File Explorer |
+| `/Reports/*` | `GET` | Path-Protected | Serves report HTML, JSON data, and print assets safely |
 
 ---
 
@@ -223,7 +227,7 @@ To run the unit test suite across all modules:
 powershell -ExecutionPolicy Bypass -File .\Run-Tests.ps1
 ```
 
-The test runner automatically detects **Pester v5+** or **Pester v4** and executes tests in the `Tests/` directory.
+The test runner automatically detects **Pester v5+** or **Pester v4** and executes all test suites in the `Tests/` directory.
 
 ---
 
@@ -232,9 +236,9 @@ The test runner automatically detects **Pester v5+** or **Pester v4** and execut
 | Problem | Cause | Solution |
 |:---|:---|:---|
 | **Script execution blocked** | PowerShell execution policy restricted | Run `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser` |
-| **Server port conflict** | Port 8080 already in use | Launch server on a different port: `.\AuditServer.ps1 -Port 9090` |
+| **Server port conflict** | Port 8765 already in use | Launch server on a different port: `.\AuditServer.ps1 -Port 9090` |
 | **Incomplete CIM/WMI results** | Non-administrator privileges | Right-click PowerShell or `START_HERE.bat` -> **Run as Administrator** |
-| **401 Unauthorized API error** | Missing `X-Audit-Token` | Reload the dashboard (`http://localhost:8080`) to fetch a new session token |
+| **401 Unauthorized API error** | Missing `X-Audit-Token` | Reload the dashboard (`http://localhost:8765`) to fetch a new session token |
 
 ---
 
@@ -246,6 +250,4 @@ This project is licensed under the **[MIT License](LICENSE)**.
 
 ---
 
-**Version**: 5.5 Enterprise Edition  
 **Author**: Sandiso Mazibuko  
-**Status**: Active Development

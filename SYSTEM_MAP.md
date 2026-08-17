@@ -33,7 +33,7 @@ The framework consists of four primary tiers:
 |                              API SERVICE TIER                                     |
 |                                                                                   |
 |   +---------------------------------------------------------------------------+   |
-|   |                 AuditServer.ps1 (Port 8080)                               |   |
+|   |                 AuditServer.ps1 (Port 8765)                               |   |
 |   |   - System.Net.HttpListener      - GUID CSRF Session Token Auth               |   |
 |   |   - Async PowerShell Job Runner  - Path Traversal Protected File Server       |   |
 |   +---------------------------------------------------------------------------+   |
@@ -185,7 +185,7 @@ $$\text{Security Score } = 100 - R$$
 
 ### 2. REST API & Web Server (`AuditServer.ps1`)
 - **Role**: Lightweight HTTP server providing a GUI backend.
-- **Port**: Default `8080` (configurable).
+- **Port**: Default `8765` (configurable).
 - **Core Technology**: Native `.NET System.Net.HttpListener`.
 - **Job Management**: Runs `SecurityAudit.ps1` in an isolated background job (`Start-Job`), receiving terminal output asynchronously.
 
