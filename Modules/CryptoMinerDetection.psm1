@@ -26,7 +26,7 @@ function Invoke-CryptoMinerDetection {
     $script:MinerExes    = if ($Config.Signatures.MinerExecutables)    { $Config.Signatures.MinerExecutables }    else { @('xmrig.exe','cgminer.exe','ethminer.exe','cpuminer.exe') }
     $script:MinerPools   = if ($Config.Signatures.MiningPools)         { $Config.Signatures.MiningPools }         else { @('xmr-pool','nanopool','ethermine','nicehash') }
     $script:MinerPorts   = if ($Config.Signatures.MiningPorts)         { $Config.Signatures.MiningPorts }         else { @(3333,4444,5555,7777,8888,9999,14433,14444) }
-    $script:MinerCmds    = if ($Config.Signatures.MinerCommandPatterns) { $Config.Signatures.MinerCommandPatterns } else { @('--algo','--pool','stratum+tcp','stratum+ssl') }
+    $script:MinerCmds    = if ($Config.Signatures.MinerCommandPatterns) { $Config.Signatures.MinerCommandPatterns } else { @('--algo=','--algo ','--pool=','stratum+tcp://','stratum+ssl://','--donate-level=','cryptonight','randomx') }
     $script:CpuThreshold = if ($Config.Thresholds.SuspiciousCPUPercent) { $Config.Thresholds.SuspiciousCPUPercent } else { 40 }
     $script:NvidiaSmi    = if ($Config.Advanced.NvidiaSmiPath -and (Test-Path $Config.Advanced.NvidiaSmiPath)) { $Config.Advanced.NvidiaSmiPath } else { 'nvidia-smi' }
 
@@ -131,7 +131,7 @@ function Test-MiningPoolConnections {
         Write-AuditResult 'Mining Pool Connections' "DETECTED: $($miningConns.Count)" -Status Fail
         $detail = $miningConns | ForEach-Object {
             $proc = Get-Process -Id $_.OwningProcess -ErrorAction SilentlyContinue
-            "Port $($_.RemotePort) → $($_.RemoteAddress) by '$($proc.ProcessName)' (PID $($_.OwningProcess))"
+            "Port $($_.RemotePort) -> $($_.RemoteAddress) by '$($proc.ProcessName)' (PID $($_.OwningProcess))"
         }
         $notes = Format-FixRecommendation `
             -Problem 'Active TCP connections to well-known stratum mining pool ports were detected.' `

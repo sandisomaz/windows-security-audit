@@ -102,7 +102,7 @@ function Invoke-ProcessTriage {
 
     if ($suspiciousProcesses.Count -gt 0) {
         Write-AuditResult 'Suspicious Processes' "Found $($suspiciousProcesses.Count)" -Status Warn
-        $procList = ($suspiciousProcesses | ForEach-Object { "$($_.Name) (PID: $($_.PID)) — $($_.Reasons)" }) -join "; "
+        $procList = ($suspiciousProcesses | ForEach-Object { "$($_.Name) (PID: $($_.PID)) - $($_.Reasons)" }) -join "; "
         $notes    = Format-FixRecommendation `
             -Problem "Detected $($suspiciousProcesses.Count) process(es) with suspicious characteristics." `
             -ManualSteps @(

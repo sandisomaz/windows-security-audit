@@ -73,13 +73,80 @@ function New-AuditReport {
     .custom-scrollbar::-webkit-scrollbar { width: 6px; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #d1d5db; border-radius: 3px; }
     
-    /* PRINT STYLES */
+    /* PRINT STYLES & PDF EXPORT OPTIMIZATIONS */
+    @page {
+        size: A4 portrait;
+        margin: 12mm 15mm 15mm 15mm;
+    }
+    
     @media print {
-        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: white; }
-        .no-print, button { display: none !important; }
-        .shadow-floating, .shadow-sm { box-shadow: none !important; border: 1px solid #eee; }
-        .h-screen { height: auto; }
-        .overflow-y-auto { overflow: visible; }
+        *, *:before, *:after {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            color-adjust: exact !important;
+        }
+        
+        html, body {
+            height: auto !important;
+            min-height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            display: block !important;
+            font-size: 10pt !important;
+        }
+        
+        .no-print, button, .copy-fix-btn {
+            display: none !important;
+        }
+        
+        div[class*="max-w-"], div[class*="h-[92vh]"], .shadow-floating, .shadow-sm {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            box-shadow: none !important;
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+        }
+        
+        header {
+            padding: 10px 0 16px 0 !important;
+            border-bottom: 2px solid #e2e8f0 !important;
+        }
+        
+        main {
+            height: auto !important;
+            max-height: none !important;
+            overflow: visible !important;
+            background: transparent !important;
+            padding: 12px 0 0 0 !important;
+            display: block !important;
+        }
+        
+        .grid, tr, td, th, .score-card {
+            break-inside: avoid !important;
+            page-break-inside: avoid !important;
+        }
+        
+        table {
+            width: 100% !important;
+            page-break-inside: auto;
+        }
+        
+        tr {
+            page-break-inside: avoid !important;
+            page-break-after: auto;
+        }
+        
+        thead {
+            display: table-header-group !important;
+        }
     }
 </style>
 </head>
@@ -93,7 +160,7 @@ function New-AuditReport {
         </div>
         <div class="flex items-center gap-2 px-3 py-1 bg-gray-50 rounded-md border border-gray-100">
             <span class="material-symbols-outlined text-sm text-gray-400">lock</span>
-            <span class="font-medium text-text-secondary text-xs">Security Audit Framework v5.5.0</span>
+            <span class="font-medium text-text-secondary text-xs">Security Audit Framework</span>
         </div>
         <div class="flex gap-4 text-gray-400"><span class="material-symbols-outlined text-[20px]">settings</span></div>
     </div>
@@ -297,6 +364,11 @@ document.addEventListener('click', function(e) {
         });
     }
 });
+if (window.location.search.includes('print=1')) {
+    window.addEventListener('load', function() {
+        setTimeout(function() { window.print(); }, 400);
+    });
+}
 </script>
 </body>
 </html>

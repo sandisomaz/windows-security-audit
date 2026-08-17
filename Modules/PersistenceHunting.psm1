@@ -168,7 +168,7 @@ function Test-RegistryAutoruns {
                         Value = $prop.Value
                     }
                     
-                    Write-Host "  $($keyPath): $($prop.Name) → $($prop.Value)" -ForegroundColor Gray
+                    Write-Host "  $($keyPath): $($prop.Name) -> $($prop.Value)" -ForegroundColor Gray
                 }
             }
         }

@@ -384,7 +384,7 @@ function Test-UndeletableFiles {
             "",
             "METHOD 3: Unlock Tool",
             "1. Download Unlocker (iobit.com)",
-            "2. Right-click file → Unlocker",
+            "2. Right-click file -> Unlocker",
             "3. Select 'Delete' and click OK",
             "",
             "METHOD 4: chkdsk (For corrupt files)",

@@ -43,7 +43,7 @@ function Invoke-DefenderAudit {
                 "Check if third-party antivirus is installed (McAfee, Norton, Avast, etc.)",
                 "Verify the third-party AV is active and up-to-date",
                 "If no AV is installed, reinstall Windows Defender",
-                "Go to Windows Security → Virus & threat protection"
+                "Go to Windows Security -> Virus & threat protection"
             ) `
             -MoreInfo "https://support.microsoft.com/windows-security"
         
@@ -273,7 +273,7 @@ function Test-DefenderSignatures {
                 -Problem "CRITICAL: Antivirus signatures are severely outdated ($daysSince days old). You are vulnerable to recent malware." `
                 -QuickFix "Update-MpSignature -UpdateSource MicrosoftUpdateServer" `
                 -ManualSteps @(
-                    "Open Settings → Windows Update",
+                    "Open Settings -> Windows Update",
                     "Click 'Check for updates'",
                     "Install all available updates",
                     "Restart if required",

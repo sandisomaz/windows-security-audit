@@ -120,9 +120,9 @@
 
         # Command-line argument patterns that identify miner processes
         MinerCommandPatterns = @(
-            '--algo', '--pool', '--user', '--pass',
-            'stratum+tcp', 'stratum+ssl', '--donate-level',
-            '--cpu-priority', '--threads', 'cryptonight'
+            '--algo=', '--algo ', '--pool=', '--pool ', '-o stratum',
+            'stratum+tcp://', 'stratum+ssl://', '--donate-level=',
+            '--cpu-priority', 'cryptonight', 'randomx', 'kawpow', 'ethash'
         )
 
         # TCP ports commonly used by stratum mining pools
