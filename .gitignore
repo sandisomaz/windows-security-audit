@@ -14,6 +14,8 @@ audit_transcript_*.log
 *.bak
 Full_Project_Context.txt
 codebase_context.txt
+*codebase*.txt
+* codebase.txt
 Export-Codebase.ps1
 export_codebase.py
 
