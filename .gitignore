@@ -8,14 +8,22 @@ WinSecAudit_*/
 transcript_*.log
 audit_transcript_*.log
 
-# Temporary Files, Aggregates & Backups
+# Temporary Files, Aggregates & Helper Scripts
 *.tmp
 *.log
 *.bak
 Full_Project_Context.txt
+codebase_context.txt
+Export-Codebase.ps1
+export_codebase.py
 
-# User-Specific Config Overrides
+# User-Specific Config Overrides & Secrets
 *_local.psd1
+.env
+.env.*
+*.key
+*.pem
+*.secret
 
 # OS System Files
 Thumbs.db
